@@ -1,12 +1,12 @@
 "use client";
 
-import { Plus, Sparkles, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   createCharacterConcept,
   deleteCharacterConcept,
-  importAnalyzedCharacterAsConcept,
   saveCharacterConcept,
 } from "@/app/actions";
 import { roleLabels } from "@/lib/labels";
@@ -38,52 +38,28 @@ type CharacterConceptItem = {
   wound: string;
 };
 
-type AnalyzedCharacterItem = {
-  arcSummary: string;
-  conflict: string;
-  desire: string;
-  firstAppearanceChapter: string;
-  id: string;
-  importanceScore: number;
-  name: string;
-  relationshipNotes: string;
-  role: string;
-  weakness: string;
-};
-
 export function CharacterStudio({
-  analyzedCharacters,
   concepts,
   projectId,
 }: {
-  analyzedCharacters: AnalyzedCharacterItem[];
   concepts: CharacterConceptItem[];
   projectId: string;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"concept" | "analysis">("concept");
   const [busy, setBusy] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(concepts[0]?.id ?? null);
   const selectedConcept =
     concepts.find((concept) => concept.id === selectedId) ?? concepts[0] ?? null;
-  const matchedAnalysis = useMemo(() => {
-    if (!selectedConcept) {
-      return null;
-    }
-
-    return (
-      analyzedCharacters.find(
-        (character) => normalizeName(character.name) === normalizeName(selectedConcept.name),
-      ) ?? null
-    );
-  }, [analyzedCharacters, selectedConcept]);
+  const plannedCount = concepts.filter((concept) => concept.status === "planned").length;
+  const revisionCount = concepts.filter(
+    (concept) => concept.status === "needs_revision",
+  ).length;
 
   async function handleCreateConcept() {
     setBusy("create");
     try {
       const result = await createCharacterConcept(projectId);
       setSelectedId(result.conceptId);
-      setMode("concept");
       router.refresh();
     } finally {
       setBusy(null);
@@ -105,145 +81,114 @@ export function CharacterStudio({
     }
   }
 
-  async function handleImport(characterId: string) {
-    setBusy(characterId);
-    try {
-      const result = await importAnalyzedCharacterAsConcept({ characterId, projectId });
-      setSelectedId(result.conceptId);
-      setMode("concept");
-      router.refresh();
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="space-y-5">
       <header className="rounded-lg border border-[var(--line)] bg-white p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-sm font-semibold text-[var(--accent)]">등장인물</p>
+            <p className="text-sm font-semibold text-[var(--accent)]">작가 설계</p>
             <h2 className="mt-2 text-2xl font-bold">캐릭터 설계실</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--muted)]">
-              먼저 인물 컨셉을 정해두거나, 원고에서 추출된 분석 결과를 바탕으로
-              설정 초안을 만들 수 있습니다.
+              이곳은 작가가 직접 정하는 인물 설정만 다룹니다. 원고를 읽고 추정한
+              AI 결과는 분석 리포트에서 따로 확인하세요.
             </p>
+            <Link
+              className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-[var(--line)] px-3 text-sm font-semibold text-[#34413b] hover:border-[#9aa6a0]"
+              href={`/projects/${projectId}/analysis`}
+            >
+              AI 분석 리포트 보기
+            </Link>
           </div>
           <div className="grid w-full grid-cols-3 gap-2 text-sm xl:max-w-sm">
             <Metric label="설계 인물" value={`${concepts.length}`} />
-            <Metric label="분석 인물" value={`${analyzedCharacters.length}`} />
-            <Metric
-              label="연결됨"
-              value={`${countMatchedConcepts(concepts, analyzedCharacters)}`}
-            />
+            <Metric label="설계 완료" value={`${plannedCount}`} />
+            <Metric label="수정 필요" value={`${revisionCount}`} />
           </div>
         </div>
       </header>
 
-      <section className="rounded-lg border border-[var(--line)] bg-white p-3">
-        <div className="grid grid-cols-2 rounded-md bg-[#eef2ef] p-1 text-sm font-semibold md:w-[420px]">
-          <ModeButton active={mode === "concept"} onClick={() => setMode("concept")}>
-            컨셉 설계
-          </ModeButton>
-          <ModeButton active={mode === "analysis"} onClick={() => setMode("analysis")}>
-            원고 분석
-          </ModeButton>
-        </div>
-      </section>
+      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="rounded-lg border border-[var(--line)] bg-white p-4 xl:sticky xl:top-4 xl:self-start">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-bold">설계 인물</h3>
+            <button
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--line)] px-3 text-sm font-semibold hover:border-[#9aa6a0]"
+              disabled={busy !== null}
+              onClick={handleCreateConcept}
+              type="button"
+            >
+              <Plus aria-hidden="true" className="h-4 w-4" />
+              추가
+            </button>
+          </div>
 
-      {mode === "concept" ? (
-        <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="rounded-lg border border-[var(--line)] bg-white p-4 xl:sticky xl:top-4 xl:self-start">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-bold">인물 목록</h3>
+          <div className="mt-4 space-y-2">
+            {concepts.length === 0 ? (
               <button
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--line)] px-3 text-sm font-semibold hover:border-[#9aa6a0]"
-                disabled={busy !== null}
+                className="w-full rounded-md border border-dashed border-[#cbd4cf] px-3 py-8 text-sm font-semibold text-[var(--muted)]"
                 onClick={handleCreateConcept}
                 type="button"
               >
-                <Plus aria-hidden="true" className="h-4 w-4" />
-                추가
+                첫 캐릭터 설정 만들기
               </button>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {concepts.length === 0 ? (
+            ) : (
+              concepts.map((concept) => (
                 <button
-                  className="w-full rounded-md border border-dashed border-[#cbd4cf] px-3 py-8 text-sm font-semibold text-[var(--muted)]"
-                  onClick={handleCreateConcept}
+                  className={`w-full rounded-md border px-3 py-3 text-left transition ${
+                    selectedConcept?.id === concept.id
+                      ? "border-[#9cc2bc] bg-[#eef7f4]"
+                      : "border-[var(--line)] bg-white hover:border-[#b7c5bf]"
+                  }`}
+                  key={concept.id}
+                  onClick={() => setSelectedId(concept.id)}
                   type="button"
                 >
-                  첫 캐릭터 설정 만들기
+                  <span className="block font-bold">{concept.name}</span>
+                  <span className="mt-1 block text-xs text-[var(--muted)]">
+                    {roleLabels[concept.role] ?? concept.role} ·{" "}
+                    {statusLabel(concept.status)}
+                  </span>
                 </button>
-              ) : (
-                concepts.map((concept) => (
-                  <button
-                    className={`w-full rounded-md border px-3 py-3 text-left transition ${
-                      selectedConcept?.id === concept.id
-                        ? "border-[#9cc2bc] bg-[#eef7f4]"
-                        : "border-[var(--line)] bg-white hover:border-[#b7c5bf]"
-                    }`}
-                    key={concept.id}
-                    onClick={() => setSelectedId(concept.id)}
-                    type="button"
-                  >
-                    <span className="block font-bold">{concept.name}</span>
-                    <span className="mt-1 block text-xs text-[var(--muted)]">
-                      {roleLabels[concept.role] ?? concept.role} ·{" "}
-                      {statusLabel(concept.status)}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </aside>
+              ))
+            )}
+          </div>
+        </aside>
 
-          {selectedConcept ? (
-            <CharacterConceptForm
-              concept={selectedConcept}
-              matchedAnalysis={matchedAnalysis}
-              onDelete={() => handleDeleteConcept(selectedConcept.id)}
-              projectId={projectId}
-            />
-          ) : (
-            <section className="rounded-lg border border-dashed border-[#cbd4cf] bg-white p-8 text-center">
-              <p className="text-sm font-semibold text-[var(--accent)]">컨셉 시트</p>
-              <h3 className="mt-2 text-xl font-bold">아직 설계된 인물이 없습니다</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
-                먼저 주요 인물을 하나 만들고 욕망, 약점, 관계, 아크를 채워보세요.
-              </p>
-              <button
-                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
-                disabled={busy !== null}
-                onClick={handleCreateConcept}
-                type="button"
-              >
-                <Plus aria-hidden="true" className="h-4 w-4" />
-                첫 캐릭터 만들기
-              </button>
-            </section>
-          )}
-        </div>
-      ) : (
-        <AnalysisImportBoard
-          analyzedCharacters={analyzedCharacters}
-          busy={busy}
-          onImport={handleImport}
-        />
-      )}
+        {selectedConcept ? (
+          <CharacterConceptForm
+            concept={selectedConcept}
+            onDelete={() => handleDeleteConcept(selectedConcept.id)}
+            projectId={projectId}
+          />
+        ) : (
+          <section className="rounded-lg border border-dashed border-[#cbd4cf] bg-white p-8 text-center">
+            <p className="text-sm font-semibold text-[var(--accent)]">컨셉 시트</p>
+            <h3 className="mt-2 text-xl font-bold">아직 설계된 인물이 없습니다</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">
+              먼저 주요 인물을 하나 만들고 욕망, 약점, 관계, 아크를 채워보세요.
+            </p>
+            <button
+              className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)]"
+              disabled={busy !== null}
+              onClick={handleCreateConcept}
+              type="button"
+            >
+              <Plus aria-hidden="true" className="h-4 w-4" />
+              첫 캐릭터 만들기
+            </button>
+          </section>
+        )}
+      </div>
     </div>
   );
 }
 
 function CharacterConceptForm({
   concept,
-  matchedAnalysis,
   onDelete,
   projectId,
 }: {
   concept: CharacterConceptItem;
-  matchedAnalysis: AnalyzedCharacterItem | null;
   onDelete?: () => void;
   projectId: string;
 }) {
@@ -321,8 +266,6 @@ function CharacterConceptForm({
           />
         </Field>
       </div>
-
-      <AnalysisBridge analysis={matchedAnalysis} />
 
       <SectionTitle eyebrow="외형과 목소리" title="독자가 먼저 감지하는 정보" />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -424,105 +367,6 @@ function CharacterConceptForm({
   );
 }
 
-function AnalysisBridge({
-  analysis,
-}: {
-  analysis: AnalyzedCharacterItem | null;
-}) {
-  return (
-    <details
-      className="mt-5 rounded-lg border border-[#d9e7e4] bg-[#f7fbf9] p-4 text-sm"
-      open={analysis !== null}
-    >
-      <summary className="cursor-pointer list-none">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-bold text-[var(--accent)]">원고 분석 연결</p>
-            <p className="mt-1 text-[#4f5d57]">
-              같은 이름의 분석 인물이 있으면 설정과 원고의 방향을 함께 봅니다.
-            </p>
-          </div>
-          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#4f5d57]">
-            {analysis ? `비중 ${analysis.importanceScore}점` : "연결 대기"}
-          </span>
-        </div>
-      </summary>
-      {!analysis ? (
-        <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-          원고 분석을 실행한 뒤 이름이 같은 인물이 발견되면 욕망, 약점, 갈등,
-          아크가 이곳에 표시됩니다.
-        </p>
-      ) : (
-        <div className="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          <CompareItem label="역할" value={roleLabels[analysis.role] ?? analysis.role} />
-          <CompareItem label="욕망" value={analysis.desire} />
-          <CompareItem label="약점" value={analysis.weakness} />
-          <CompareItem label="갈등" value={analysis.conflict} />
-          <CompareItem label="아크" value={analysis.arcSummary} />
-          <CompareItem label="첫 등장" value={analysis.firstAppearanceChapter} />
-        </div>
-      )}
-    </details>
-  );
-}
-
-function AnalysisImportBoard({
-  analyzedCharacters,
-  busy,
-  onImport,
-}: {
-  analyzedCharacters: AnalyzedCharacterItem[];
-  busy: string | null;
-  onImport: (characterId: string) => void;
-}) {
-  if (analyzedCharacters.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-[#cbd4cf] bg-white p-8 text-center text-sm text-[var(--muted)]">
-        원고 분석을 실행하면 추출된 인물을 설정 초안으로 가져올 수 있습니다.
-      </div>
-    );
-  }
-
-  return (
-    <section className="rounded-lg border border-[var(--line)] bg-white">
-      <div className="border-b border-[var(--line)] p-5">
-        <p className="text-sm font-semibold text-[var(--accent)]">원고 분석</p>
-        <h3 className="mt-1 text-xl font-bold">추출된 인물로 설정 만들기</h3>
-      </div>
-      <div className="divide-y divide-[var(--line)]">
-        {analyzedCharacters.map((character) => (
-          <article
-            className="grid gap-4 p-5 lg:grid-cols-[180px_1fr_160px] lg:items-center"
-            key={character.id}
-          >
-            <div>
-              <h4 className="text-lg font-bold">{character.name}</h4>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                {roleLabels[character.role] ?? character.role} ·{" "}
-                {character.importanceScore}
-              </p>
-            </div>
-            <div className="grid gap-2 text-sm leading-6 text-[#34413b] md:grid-cols-3">
-              <MiniInfo label="욕망" value={character.desire} />
-              <MiniInfo label="약점" value={character.weakness} />
-              <MiniInfo label="갈등" value={character.conflict} />
-            </div>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-50"
-              disabled={busy !== null}
-              onClick={() => onImport(character.id)}
-              type="button"
-            >
-              <Sparkles aria-hidden="true" className="h-4 w-4" />
-              {busy === character.id ? "가져오는 중" : "설정 초안 만들기"}
-            </button>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function Field({
   children,
   label,
@@ -547,51 +391,11 @@ function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
   );
 }
 
-function ModeButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`rounded px-4 py-2 ${
-        active ? "bg-white text-[#17484b] shadow-sm" : "text-[#58615c]"
-      }`}
-      onClick={onClick}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-[#f7f9f7] p-3">
       <p className="text-xs font-bold text-[#6b746f]">{label}</p>
       <p className="mt-1 text-lg font-bold text-[#25302b]">{value}</p>
-    </div>
-  );
-}
-
-function CompareItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-[#f7f9f7] p-3">
-      <p className="text-xs font-bold text-[#6b746f]">{label}</p>
-      <p className="mt-1 leading-6">{value}</p>
-    </div>
-  );
-}
-
-function MiniInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-bold text-[#6b746f]">{label}</p>
-      <p className="mt-1 line-clamp-2">{value}</p>
     </div>
   );
 }
@@ -609,10 +413,6 @@ function formatTagsForInput(tags: string[]) {
   return tags.map((tag) => `#${tag.replace(/^#/, "")}`).join(" ");
 }
 
-function normalizeName(value: string) {
-  return value.trim().toLowerCase();
-}
-
 function statusLabel(value: string) {
   const labels: Record<string, string> = {
     analysis_draft: "분석 기반",
@@ -622,16 +422,4 @@ function statusLabel(value: string) {
   };
 
   return labels[value] ?? value;
-}
-
-function countMatchedConcepts(
-  concepts: CharacterConceptItem[],
-  analyzedCharacters: AnalyzedCharacterItem[],
-) {
-  const analyzedNames = new Set(
-    analyzedCharacters.map((character) => normalizeName(character.name)),
-  );
-
-  return concepts.filter((concept) => analyzedNames.has(normalizeName(concept.name)))
-    .length;
 }

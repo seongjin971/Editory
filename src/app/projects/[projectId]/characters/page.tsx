@@ -1,5 +1,5 @@
 import { CharacterStudio } from "@/components/character-studio";
-import { getCharacterConcepts, getLatestAnalysis } from "@/lib/data";
+import { getCharacterConcepts } from "@/lib/data";
 
 export default async function CharactersPage({
   params,
@@ -7,27 +7,10 @@ export default async function CharactersPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  const [analysis, concepts] = await Promise.all([
-    getLatestAnalysis(projectId),
-    getCharacterConcepts(projectId),
-  ]);
+  const concepts = await getCharacterConcepts(projectId);
 
   return (
     <CharacterStudio
-      analyzedCharacters={
-        analysis?.characters.map((character) => ({
-          arcSummary: character.arcSummary,
-          conflict: character.conflict,
-          desire: character.desire,
-          firstAppearanceChapter: character.firstAppearanceChapter,
-          id: character.id,
-          importanceScore: character.importanceScore,
-          name: character.name,
-          relationshipNotes: character.relationshipNotes,
-          role: character.role,
-          weakness: character.weakness,
-        })) ?? []
-      }
       concepts={concepts.map((concept) => ({
         arcEnd: concept.arcEnd,
         arcStart: concept.arcStart,
