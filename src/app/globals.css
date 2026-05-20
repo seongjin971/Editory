@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f6f5;
+  --foreground: #1d2320;
+  --muted: #69726d;
+  --line: #dfe3de;
+  --panel: #ffffff;
+  --accent: #235f63;
+  --accent-strong: #17484b;
+  --warning: #9d5a18;
+  --danger: #a33d3d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.field-input,
+.field-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #25302b;
+  outline: none;
+}
+
+.field-input {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.field-textarea {
+  min-height: 96px;
+  padding: 12px;
+  line-height: 1.65;
+}
+
+.field-input:focus,
+.field-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(35 95 99 / 10%);
+}
+
+.story-editor-shell {
+  background: #f2f4f2;
+  padding: 28px 18px;
+}
+
+.story-editor-shell .ProseMirror {
+  width: min(100%, var(--editor-document-width));
+  min-height: 680px;
+  margin: 0 auto;
+  border: 1px solid #e1e6e2;
+  border-radius: 18px;
+  background: #fffefb;
+  box-shadow: 0 18px 45px rgb(35 48 43 / 8%);
+  color: #202722;
+  font-family: var(--editor-font-family);
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
+  outline: none;
+  padding: 56px clamp(24px, 5vw, 72px);
+}
+
+.story-editor-shell .ProseMirror p {
+  margin: 0 0 var(--editor-paragraph-spacing);
+}
+
+.story-editor-shell .ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.story-editor-shell .ProseMirror ul,
+.story-editor-shell .ProseMirror ol {
+  margin: 0 0 var(--editor-paragraph-spacing);
+  padding-left: 1.5em;
+}
+
+.story-editor-shell .ProseMirror blockquote {
+  margin: 0 0 var(--editor-paragraph-spacing);
+  border-left: 3px solid #9cc2bc;
+  padding: 0.2em 0 0.2em 1em;
+  color: #485650;
+}
+
+.story-editor-shell .ProseMirror hr {
+  margin: 32px auto;
+  width: 42%;
+  border: 0;
+  border-top: 1px solid #cbd4cf;
+}
+
+.story-editor-shell .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #9aa6a0;
+  pointer-events: none;
+}
+
+.story-typewriter-mode .story-editor-shell .ProseMirror {
+  padding-top: 30vh;
+  padding-bottom: 35vh;
+}
