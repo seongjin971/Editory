@@ -9,17 +9,11 @@ import {
   ChevronDown,
   FilePlus2,
   Focus,
-  Map,
-  Network,
   PanelLeft,
   PanelRight,
   Save,
-  ScrollText,
-  SlidersHorizontal,
   Sparkles,
-  StickyNote,
   Trash2,
-  Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -85,12 +79,12 @@ type CompanionView =
   | "insight"
   | "settings"
   | "memo";
-type CommandMenu = null | "project" | "chapters" | "reference" | "view" | "analysis";
+type CommandMenu = null | "chapters" | "view" | "analysis";
 
 const layoutLabels: Record<LayoutMode, string> = {
-  draft: "원고만",
-  splitLeft: "자료 + 원고",
-  splitRight: "원고 + 자료",
+  draft: "원고 집중",
+  splitLeft: "보조창 왼쪽",
+  splitRight: "보조창 오른쪽",
 };
 
 const companionLabels: Record<CompanionView, string> = {
@@ -446,32 +440,18 @@ export function WritingWorkspace({
           <p className="text-xs font-bold uppercase tracking-wide text-[var(--accent)]">
             집필 작업공간
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-lg font-bold text-[#1d2320]">
-              {draft.title || "새 챕터"}
-            </h1>
-            <span className="rounded-full bg-[#eef2ef] px-2 py-1 text-xs font-semibold text-[#58615c]">
-              {layoutLabels[layoutMode]}
-            </span>
-          </div>
+          <h1 className="mt-1 truncate text-lg font-bold text-[#1d2320]">
+            {draft.title || "새 챕터"}
+          </h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {draft.chapterNumber}장 · {formatNumber(characterCount)}자 ·{" "}
+            {formatNumber(paragraphCount)}문단 · {layoutLabels[layoutMode]}
+            {showCompanion ? ` · 보조 창: ${companionLabels[companionView]}` : ""} ·{" "}
+            {dirty ? "변경사항 있음" : "저장됨"}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <CommandMenuButton
-            label="프로젝트"
-            menu="project"
-            onToggle={setOpenMenu}
-            openMenu={openMenu}
-          >
-            <MenuItem onClick={() => router.push(basePath)}>개요 열기</MenuItem>
-            <MenuItem onClick={() => router.push(`${basePath}/analysis`)}>
-              분석 리포트
-            </MenuItem>
-            <MenuItem onClick={() => router.push(`${basePath}/settings`)}>
-              프로젝트 설정
-            </MenuItem>
-          </CommandMenuButton>
-
           <CommandMenuButton
             label="챕터"
             menu="chapters"
@@ -514,64 +494,6 @@ export function WritingWorkspace({
               onClick={handleDeleteChapter}
             >
               현재 챕터 삭제
-            </MenuItem>
-          </CommandMenuButton>
-
-          <CommandMenuButton
-            label="자료"
-            menu="reference"
-            onToggle={setOpenMenu}
-            openMenu={openMenu}
-          >
-            <MenuItem
-              active={companionView === "timeline"}
-              icon={<Map aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("timeline")}
-            >
-              타임라인
-            </MenuItem>
-            <MenuItem
-              active={companionView === "storyline"}
-              icon={<Network aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("storyline")}
-            >
-              스토리라인
-            </MenuItem>
-            <MenuItem
-              active={companionView === "characters"}
-              icon={<Users aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("characters")}
-            >
-              등장인물
-            </MenuItem>
-            <MenuItem
-              active={companionView === "plot"}
-              icon={<ScrollText aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("plot")}
-            >
-              플롯
-            </MenuItem>
-            <MenuItem
-              active={companionView === "insight"}
-              icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("insight")}
-            >
-              AI 인사이트
-            </MenuItem>
-            <MenuDivider />
-            <MenuItem
-              active={companionView === "settings"}
-              icon={<SlidersHorizontal aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("settings")}
-            >
-              문서 설정
-            </MenuItem>
-            <MenuItem
-              active={companionView === "memo"}
-              icon={<StickyNote aria-hidden="true" className="h-4 w-4" />}
-              onClick={() => setCompanionView("memo")}
-            >
-              메모
             </MenuItem>
           </CommandMenuButton>
 
@@ -883,10 +805,13 @@ function CompanionTabs({
 }) {
   const tabs: Array<{ label: string; value: CompanionView }> = [
     { label: "타임라인", value: "timeline" },
+    { label: "스토리", value: "storyline" },
     { label: "인물", value: "characters" },
     { label: "플롯", value: "plot" },
     { label: "챕터", value: "chapters" },
+    { label: "AI", value: "insight" },
     { label: "설정", value: "settings" },
+    { label: "메모", value: "memo" },
   ];
 
   return (
