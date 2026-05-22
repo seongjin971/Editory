@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getStoryAnalyzer } from "@/lib/analysis";
+import { requireUser } from "@/lib/auth";
 import { saveAnalysisResult } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import {
@@ -19,6 +20,7 @@ const SaveWritingManuscriptSchema = ManuscriptInputSchema.extend({
 });
 
 export async function createProject(formData: FormData) {
+  await requireUser();
   const data = ProjectInputSchema.parse(formDataToObject(formData));
   const project = await prisma.project.create({ data });
 
@@ -28,6 +30,7 @@ export async function createProject(formData: FormData) {
 }
 
 export async function updateProject(formData: FormData) {
+  await requireUser();
   const projectId = IdSchema.parse(formData.get("projectId"));
   const data = ProjectInputSchema.parse(formDataToObject(formData));
 
@@ -42,6 +45,7 @@ export async function updateProject(formData: FormData) {
 }
 
 export async function deleteProject(formData: FormData) {
+  await requireUser();
   const projectId = IdSchema.parse(formData.get("projectId"));
 
   await prisma.project.delete({
@@ -53,6 +57,7 @@ export async function deleteProject(formData: FormData) {
 }
 
 export async function createManuscript(formData: FormData) {
+  await requireUser();
   const data = ManuscriptInputSchema.parse(formDataToObject(formData));
   const manuscript = await prisma.manuscript.create({ data });
 
@@ -62,6 +67,7 @@ export async function createManuscript(formData: FormData) {
 }
 
 export async function updateManuscript(formData: FormData) {
+  await requireUser();
   const manuscriptId = IdSchema.parse(formData.get("manuscriptId"));
   const data = ManuscriptInputSchema.parse(formDataToObject(formData));
 
@@ -82,6 +88,7 @@ export async function updateManuscript(formData: FormData) {
 }
 
 export async function deleteManuscript(formData: FormData) {
+  await requireUser();
   const projectId = IdSchema.parse(formData.get("projectId"));
   const manuscriptId = IdSchema.parse(formData.get("manuscriptId"));
 
@@ -95,6 +102,7 @@ export async function deleteManuscript(formData: FormData) {
 }
 
 export async function analyzeProject(formData: FormData) {
+  await requireUser();
   const projectId = IdSchema.parse(formData.get("projectId"));
   await runProjectAnalysis(projectId);
 
@@ -103,6 +111,7 @@ export async function analyzeProject(formData: FormData) {
 }
 
 export async function analyzeChapter(formData: FormData) {
+  await requireUser();
   const projectId = IdSchema.parse(formData.get("projectId"));
   const manuscriptId = IdSchema.parse(formData.get("manuscriptId"));
   await runChapterAnalysis(projectId, manuscriptId);
@@ -112,6 +121,7 @@ export async function analyzeChapter(formData: FormData) {
 }
 
 export async function createBlankManuscript(projectIdInput: string) {
+  await requireUser();
   const projectId = IdSchema.parse(projectIdInput);
   const latest = await prisma.manuscript.findFirst({
     where: { projectId },
@@ -135,6 +145,7 @@ export async function createBlankManuscript(projectIdInput: string) {
 }
 
 export async function saveWritingManuscript(input: unknown) {
+  await requireUser();
   const data = SaveWritingManuscriptSchema.parse(input);
   const manuscriptId = data.manuscriptId ?? null;
 
@@ -186,6 +197,7 @@ export async function deleteWritingManuscript(input: {
   projectId: string;
   manuscriptId: string;
 }) {
+  await requireUser();
   const projectId = IdSchema.parse(input.projectId);
   const manuscriptId = IdSchema.parse(input.manuscriptId);
 
@@ -208,6 +220,7 @@ export async function deleteWritingManuscript(input: {
 }
 
 export async function analyzeProjectFromWorkspace(projectIdInput: string) {
+  await requireUser();
   const projectId = IdSchema.parse(projectIdInput);
   await runProjectAnalysis(projectId);
   revalidateProject(projectId);
@@ -219,6 +232,7 @@ export async function analyzeChapterFromWorkspace(input: {
   projectId: string;
   manuscriptId: string;
 }) {
+  await requireUser();
   const projectId = IdSchema.parse(input.projectId);
   const manuscriptId = IdSchema.parse(input.manuscriptId);
   await runChapterAnalysis(projectId, manuscriptId);
@@ -228,6 +242,7 @@ export async function analyzeChapterFromWorkspace(input: {
 }
 
 export async function createCharacterConcept(projectIdInput: string) {
+  await requireUser();
   const projectId = IdSchema.parse(projectIdInput);
   const count = await prisma.characterConcept.count({ where: { projectId } });
   const concept = await prisma.characterConcept.create({
@@ -246,6 +261,7 @@ export async function createCharacterConcept(projectIdInput: string) {
 }
 
 export async function saveCharacterConcept(formData: FormData) {
+  await requireUser();
   const data = CharacterConceptInputSchema.parse(formDataToObject(formData));
   const tagsJson = JSON.stringify(parseHashTags(data.tags));
   const payload = {
@@ -310,6 +326,7 @@ export async function deleteCharacterConcept(input: {
   conceptId: string;
   projectId: string;
 }) {
+  await requireUser();
   const projectId = IdSchema.parse(input.projectId);
   const conceptId = IdSchema.parse(input.conceptId);
 
@@ -328,6 +345,7 @@ export async function importAnalyzedCharacterAsConcept(input: {
   characterId: string;
   projectId: string;
 }) {
+  await requireUser();
   const projectId = IdSchema.parse(input.projectId);
   const characterId = IdSchema.parse(input.characterId);
   const character = await prisma.characterProfile.findFirstOrThrow({

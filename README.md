@@ -13,6 +13,28 @@ npm run dev
 
 브라우저에서 `http://localhost:3000`을 엽니다. 기존 프로젝트가 있으면 바로 쓰기 화면으로 이동하고, 프로젝트 목록은 `/dashboard`에서 볼 수 있습니다.
 
+## 로컬 로그인
+
+공개 회원가입은 없습니다. `npx prisma db seed`를 실행하면 tester 계정 1개가 생성됩니다.
+
+- 기본 이메일: `tester@example.com`
+- 기본 비밀번호: `tester1234!`
+
+`.env`에는 최소한 아래 값이 필요합니다. 실제 `.env`는 GitHub에 올리지 않습니다.
+
+```bash
+DATABASE_URL="file:./dev.db"
+SESSION_SECRET="replace-with-a-random-32-byte-secret"
+TESTER_EMAIL="tester@example.com"
+TESTER_PASSWORD="tester1234!"
+```
+
+tester 비밀번호를 재설정하려면 로컬 관리자 터미널에서 실행합니다.
+
+```bash
+npm run auth:reset-tester -- new-password
+```
+
 ## 구성
 
 - Next.js App Router, TypeScript, React, Tailwind CSS

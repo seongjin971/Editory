@@ -1,10 +1,28 @@
 import "dotenv/config";
 
+import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const testerEmail = process.env.TESTER_EMAIL ?? "tester@example.com";
+const testerPassword = process.env.TESTER_PASSWORD ?? "tester1234!";
 
 async function main() {
+  const passwordHash = await bcrypt.hash(testerPassword, 12);
+
+  await prisma.user.upsert({
+    where: { email: testerEmail },
+    update: {
+      passwordHash,
+      role: "tester",
+    },
+    create: {
+      email: testerEmail,
+      passwordHash,
+      role: "tester",
+    },
+  });
+
   await prisma.project.deleteMany();
 
   const project = await prisma.project.create({
@@ -86,6 +104,7 @@ async function main() {
   });
 
   console.log(`Seeded sample project: ${project.title}`);
+  console.log(`Seeded tester account: ${testerEmail}`);
 }
 
 main()
