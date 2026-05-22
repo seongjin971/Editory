@@ -55,3 +55,7 @@ npm run auth:reset-tester -- new-password
 4. 저장 로직은 `src/lib/data.ts`의 `saveAnalysisResult()`가 그대로 처리합니다.
 
 현재 MVP는 `MockStoryAnalyzer`를 사용하므로 로컬에서 바로 실행됩니다.
+
+## Cafe24 테스트 배포
+
+Cafe24 서버에 올려 테스터 링크를 만들 때는 [DEPLOY_CAFE24.md](./DEPLOY_CAFE24.md)를 참고하세요. 운영 서버에서는 `.env`와 `prisma/prod.db`를 GitHub에 올리지 않습니다.

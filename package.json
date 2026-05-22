@@ -2,12 +2,19 @@
   "name": "editory",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
     "lint": "eslint",
+    "deploy:init": "npm ci && npm run prisma:deploy && npm run auth:ensure-tester && npm run build",
+    "deploy:update": "npm ci && npm run prisma:deploy && npm run build",
+    "prisma:deploy": "prisma migrate deploy",
     "auth:reset-tester": "tsx scripts/reset-tester-password.ts",
+    "auth:ensure-tester": "tsx scripts/ensure-tester.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
