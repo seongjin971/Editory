@@ -13,6 +13,7 @@ import {
   ProjectInputSchema,
   formDataToObject,
 } from "@/lib/validation";
+import { parseWordDocument } from "@/lib/word-import";
 
 const IdSchema = z.string().min(1);
 const SaveWritingManuscriptSchema = ManuscriptInputSchema.extend({
@@ -142,6 +143,51 @@ export async function createBlankManuscript(projectIdInput: string) {
   revalidatePath(`/projects/${projectId}/manuscripts`);
 
   return { manuscriptId: manuscript.id };
+}
+
+export async function importWordManuscript(formData: FormData) {
+  await requireUser();
+  const projectId = IdSchema.parse(formData.get("projectId"));
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
+    return { error: "가져올 Word 문서를 선택해 주세요.", ok: false };
+  }
+
+  try {
+    await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+
+    const imported = await parseWordDocument(file);
+    const latest = await prisma.manuscript.findFirst({
+      where: { projectId },
+      orderBy: { chapterNumber: "desc" },
+    });
+    const chapterNumber = (latest?.chapterNumber ?? 0) + 1;
+    const manuscript = await prisma.manuscript.create({
+      data: {
+        projectId,
+        chapterNumber,
+        title: imported.fileBaseName,
+        body: imported.plainText,
+        contentHtml: imported.contentHtml,
+        contentJson: null,
+        memo: `Word 문서에서 가져옴: ${file.name}`,
+      },
+    });
+
+    revalidateProject(projectId);
+    revalidatePath(`/projects/${projectId}/manuscripts`);
+
+    return { manuscriptId: manuscript.id, ok: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Word 문서를 가져오는 중 오류가 발생했습니다.",
+      ok: false,
+    };
+  }
 }
 
 export async function saveWritingManuscript(input: unknown) {

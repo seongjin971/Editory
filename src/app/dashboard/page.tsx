@@ -10,7 +10,7 @@ export default async function DashboardPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-5 py-8 md:px-8">
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-semibold text-[var(--accent)]">스토리랩</p>
+          <p className="text-sm font-semibold text-[var(--accent)]">Editory</p>
           <h1 className="mt-2 text-3xl font-bold tracking-normal text-[#1d2320]">
             프로젝트
           </h1>

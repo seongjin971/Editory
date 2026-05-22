@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "스토리랩",
+  title: "Editory",
   description: "원고를 구조로 바꾸는 AI 스토리 분석 도구",
 };
 

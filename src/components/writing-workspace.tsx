@@ -8,6 +8,7 @@ import {
   BookOpen,
   ChevronDown,
   FilePlus2,
+  FileUp,
   Focus,
   PanelLeft,
   PanelRight,
@@ -16,7 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import {
@@ -24,6 +25,7 @@ import {
   analyzeProjectFromWorkspace,
   createBlankManuscript,
   deleteWritingManuscript,
+  importWordManuscript,
   saveWritingManuscript,
 } from "@/app/actions";
 import { EditorSettingsPanel } from "@/components/editor/editor-settings-panel";
@@ -68,7 +70,7 @@ type Draft = {
   title: string;
 };
 
-type BusyState = null | "save" | "new" | "delete" | "chapter" | "project";
+type BusyState = null | "save" | "new" | "delete" | "chapter" | "project" | "import";
 type LayoutMode = "draft" | "splitLeft" | "splitRight";
 type CompanionView =
   | "timeline"
@@ -133,6 +135,7 @@ export function WritingWorkspace({
   const [editor, setEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const editorSnapshotRef = useRef<RichEditorSnapshot | null>(null);
+  const wordInputRef = useRef<HTMLInputElement | null>(null);
   const splitRef = useRef<HTMLDivElement | null>(null);
   const storageLoadedRef = useRef(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -143,6 +146,7 @@ export function WritingWorkspace({
   const [draggingSplit, setDraggingSplit] = useState(false);
   const [openMenu, setOpenMenu] = useState<CommandMenu>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const selectedManuscript = useMemo(
     () => manuscripts.find((manuscript) => manuscript.id === selectedId) ?? null,
@@ -160,13 +164,13 @@ export function WritingWorkspace({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const storedLayout = window.localStorage.getItem(
-        `storylab:write-layout-v2:${projectId}`,
+        `editory:write-layout-v2:${projectId}`,
       );
       const storedCompanionView = window.localStorage.getItem(
-        `storylab:companion-view:${projectId}`,
+        `editory:companion-view:${projectId}`,
       );
       const storedPercent = Number(
-        window.localStorage.getItem(`storylab:split-percent:${projectId}`),
+        window.localStorage.getItem(`editory:split-percent:${projectId}`),
       );
 
       if (isLayoutMode(storedLayout)) {
@@ -192,7 +196,7 @@ export function WritingWorkspace({
       return;
     }
 
-    window.localStorage.setItem(`storylab:write-layout-v2:${projectId}`, layoutMode);
+    window.localStorage.setItem(`editory:write-layout-v2:${projectId}`, layoutMode);
   }, [layoutMode, projectId]);
 
   useEffect(() => {
@@ -200,7 +204,7 @@ export function WritingWorkspace({
       return;
     }
 
-    window.localStorage.setItem(`storylab:companion-view:${projectId}`, companionView);
+    window.localStorage.setItem(`editory:companion-view:${projectId}`, companionView);
   }, [companionView, projectId]);
 
   useEffect(() => {
@@ -209,7 +213,7 @@ export function WritingWorkspace({
     }
 
     window.localStorage.setItem(
-      `storylab:split-percent:${projectId}`,
+      `editory:split-percent:${projectId}`,
       String(companionPercent),
     );
   }, [companionPercent, projectId]);
@@ -381,6 +385,73 @@ export function WritingWorkspace({
     }
   }
 
+  function handleOpenWordImport() {
+    setOpenMenu(null);
+    setImportError(null);
+    wordInputRef.current?.click();
+  }
+
+  async function handleImportWordFile(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0] ?? null;
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setBusy("import");
+      setImportError(null);
+
+      if (dirty) {
+        const shouldSave = window.confirm(
+          "현재 변경사항을 저장한 뒤 Word 문서를 가져올까요?",
+        );
+
+        if (!shouldSave) {
+          return;
+        }
+
+        await persistDraft();
+      }
+
+      const formData = new FormData();
+      formData.append("projectId", projectId);
+      formData.append("file", file);
+
+      const result = await importWordManuscript(formData);
+
+      if (!result.ok) {
+        setImportError(result.error ?? "Word 문서를 가져오지 못했습니다.");
+        return;
+      }
+
+      const importedManuscriptId = result.manuscriptId;
+
+      if (!importedManuscriptId) {
+        setImportError("가져온 원고를 찾지 못했습니다.");
+        return;
+      }
+
+      setSelectedId(importedManuscriptId);
+      setDirty(false);
+      setEditor(null);
+      router.replace(`${basePath}/write?manuscriptId=${importedManuscriptId}`, {
+        scroll: false,
+      });
+      router.refresh();
+    } catch (error) {
+      setImportError(
+        error instanceof Error
+          ? error.message
+          : "Word 문서를 가져오는 중 오류가 발생했습니다.",
+      );
+    } finally {
+      input.value = "";
+      setBusy(null);
+    }
+  }
+
   async function handleDeleteChapter() {
     if (!draft.manuscriptId || !window.confirm("이 챕터를 삭제할까요?")) {
       return;
@@ -486,6 +557,13 @@ export function WritingWorkspace({
               onClick={handleCreateChapter}
             >
               새 챕터 만들기
+            </MenuItem>
+            <MenuItem
+              disabled={busy !== null}
+              icon={<FileUp aria-hidden="true" className="h-4 w-4" />}
+              onClick={handleOpenWordImport}
+            >
+              Word 문서 가져오기
             </MenuItem>
             <MenuItem
               danger
@@ -641,6 +719,7 @@ export function WritingWorkspace({
       manuscripts={manuscripts}
       onCreateChapter={handleCreateChapter}
       onDeleteChapter={handleDeleteChapter}
+      onImportWord={handleOpenWordImport}
       onMemoChange={(memo) => updateDraft({ memo })}
       onSelectChapter={selectManuscript}
       onSettingsChange={updateSettings}
@@ -661,7 +740,20 @@ export function WritingWorkspace({
 
   return (
     <div className="min-h-[calc(100vh-32px)]">
+      <input
+        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        className="hidden"
+        onChange={handleImportWordFile}
+        ref={wordInputRef}
+        type="file"
+      />
       {commandBar}
+
+      {importError ? (
+        <div className="mb-4 rounded-xl border border-[#efcaca] bg-[#fff7f7] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
+          {importError}
+        </div>
+      ) : null}
 
       <div
         className={clsx(
@@ -718,6 +810,7 @@ function CompanionPanel({
   manuscripts,
   onCreateChapter,
   onDeleteChapter,
+  onImportWord,
   onMemoChange,
   onSelectChapter,
   onSettingsChange,
@@ -737,6 +830,7 @@ function CompanionPanel({
   manuscripts: WritingManuscript[];
   onCreateChapter: () => void;
   onDeleteChapter: () => void;
+  onImportWord: () => void;
   onMemoChange: (memo: string) => void;
   onSelectChapter: (manuscriptId: string) => void;
   onSettingsChange: (settings: EditorSettings) => void;
@@ -770,6 +864,7 @@ function CompanionPanel({
             busy={busy !== null}
             chapters={manuscripts}
             onCreateChapter={onCreateChapter}
+            onImportWord={onImportWord}
             onSelectChapter={onSelectChapter}
             selectedId={selectedId}
           />
@@ -959,26 +1054,39 @@ function ChapterReferencePanel({
   busy,
   chapters,
   onCreateChapter,
+  onImportWord,
   onSelectChapter,
   selectedId,
 }: {
   busy: boolean;
   chapters: WritingManuscript[];
   onCreateChapter: () => void;
+  onImportWord: () => void;
   onSelectChapter: (manuscriptId: string) => void;
   selectedId: string | null;
 }) {
   return (
     <div className="space-y-3">
-      <button
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white text-sm font-semibold transition hover:border-[#9aa6a0]"
-        disabled={busy}
-        onClick={onCreateChapter}
-        type="button"
-      >
-        <FilePlus2 aria-hidden="true" className="h-4 w-4" />
-        새 챕터
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white text-sm font-semibold transition hover:border-[#9aa6a0]"
+          disabled={busy}
+          onClick={onCreateChapter}
+          type="button"
+        >
+          <FilePlus2 aria-hidden="true" className="h-4 w-4" />
+          새 챕터
+        </button>
+        <button
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white text-sm font-semibold transition hover:border-[#9aa6a0]"
+          disabled={busy}
+          onClick={onImportWord}
+          type="button"
+        >
+          <FileUp aria-hidden="true" className="h-4 w-4" />
+          Word
+        </button>
+      </div>
       {chapters.map((chapter) => (
         <button
           className={clsx(

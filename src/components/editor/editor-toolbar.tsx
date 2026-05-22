@@ -21,7 +21,7 @@ export function EditorToolbar({
   busy,
   editor,
 }: {
-  busy: null | "save" | "new" | "delete" | "chapter" | "project";
+  busy: null | "save" | "new" | "delete" | "chapter" | "project" | "import";
   editor: Editor | null;
 }) {
   const disabled = !editor || busy !== null;

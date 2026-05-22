@@ -137,7 +137,7 @@ export function ProjectShell({
 
           {!writingMode || expandedWritingNav ? (
             <div className="mt-5 border-b border-[var(--line)] pb-4">
-              <p className="text-xs font-bold text-[var(--accent)]">스토리랩</p>
+              <p className="text-xs font-bold text-[var(--accent)]">Editory</p>
               <h1 className="mt-2 line-clamp-2 text-xl font-bold text-[#1d2320]">
                 {title}
               </h1>

@@ -1,4 +1,4 @@
-# 스토리랩
+# Editory
 
 AI Story Structure Analyzer + Writing Workspace MVP입니다. 원고를 저장하고 로컬 Mock analyzer로 스토리라인, 타임라인, 등장인물, 사건 비중, 설정 충돌 후보를 생성합니다. 외부 API 키는 필요하지 않습니다.
 
@@ -43,6 +43,7 @@ npm run auth:reset-tester -- new-password
 - `MockStoryAnalyzer`로 deterministic 구조 분석
 - `LlmStoryAnalyzer` placeholder 포함
 - 쓰기 우선 워크스페이스(`/projects/[projectId]/write`)
+- `.docx` Word 문서 가져오기 후 리치 텍스트 에디터에서 이어 쓰기
 
 ## LLM analyzer로 교체하기
 
