@@ -4,11 +4,19 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-const testerEmail = process.env.TESTER_EMAIL ?? "tester@example.com";
-const testerPassword = process.env.TESTER_PASSWORD ?? "tester1234!";
+const testerEmail = process.env.TESTER_EMAIL ?? "test@test.com";
+const testerPassword = process.env.TESTER_PASSWORD ?? "102800";
 
 async function main() {
   const passwordHash = await bcrypt.hash(testerPassword, 12);
+
+  await prisma.user.deleteMany({
+    where: {
+      email: {
+        not: testerEmail,
+      },
+    },
+  });
 
   await prisma.user.upsert({
     where: { email: testerEmail },

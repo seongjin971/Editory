@@ -18,7 +18,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           autoComplete="email"
           className="mt-2 h-11 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--accent)]"
           name="email"
-          placeholder="tester@example.com"
+          placeholder="test@test.com"
           type="email"
         />
       </label>

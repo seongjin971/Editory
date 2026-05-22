@@ -17,16 +17,16 @@ npm run dev
 
 공개 회원가입은 없습니다. `npx prisma db seed`를 실행하면 tester 계정 1개가 생성됩니다.
 
-- 기본 이메일: `tester@example.com`
-- 기본 비밀번호: `tester1234!`
+- 기본 이메일: `test@test.com`
+- 기본 비밀번호: `102800`
 
 `.env`에는 최소한 아래 값이 필요합니다. 실제 `.env`는 GitHub에 올리지 않습니다.
 
 ```bash
 DATABASE_URL="file:./dev.db"
 SESSION_SECRET="replace-with-a-random-32-byte-secret"
-TESTER_EMAIL="tester@example.com"
-TESTER_PASSWORD="tester1234!"
+TESTER_EMAIL="test@test.com"
+TESTER_PASSWORD="102800"
 ```
 
 tester 비밀번호를 재설정하려면 로컬 관리자 터미널에서 실행합니다.
