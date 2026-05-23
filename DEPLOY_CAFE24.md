@@ -39,6 +39,8 @@ TESTER_PASSWORD="테스터에게 줄 비밀번호"
 NODE_ENV="production"
 PORT="3000"
 NEXT_PUBLIC_BASE_PATH=""
+NEXT_PUBLIC_SITE_URL="http://서버주소"
+SESSION_COOKIE_SECURE="false"
 ```
 
 초기 설치/마이그레이션/테스터 생성/빌드:
@@ -118,3 +120,4 @@ ProxyPassReverse /editory/ http://127.0.0.1:3200/editory/
 - `.env`와 `prisma/prod.db`는 GitHub에 올리지 않습니다.
 - SQLite는 MVP 테스트용으로 충분하지만, 동시에 여러 사용자가 장시간 쓰는 운영 서비스로 커지면 PostgreSQL 전환을 권장합니다.
 - Word 업로드를 쓰므로 서버 액션 업로드 한도는 12MB로 설정되어 있습니다.
+- 현재처럼 HTTP로 테스트할 때는 `SESSION_COOKIE_SECURE="false"`로 둡니다. HTTPS를 붙인 뒤에는 `NEXT_PUBLIC_SITE_URL`을 `https://...`로 바꾸고 `SESSION_COOKIE_SECURE="true"`로 전환합니다.

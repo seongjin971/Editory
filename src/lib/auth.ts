@@ -43,7 +43,7 @@ export async function setSessionCookie(user: {
     maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/",
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(),
   });
 }
 
@@ -51,4 +51,18 @@ export async function clearSessionCookie() {
   const cookieStore = await cookies();
 
   cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
+function shouldUseSecureCookie() {
+  const explicitValue = process.env.SESSION_COOKIE_SECURE?.toLowerCase();
+
+  if (explicitValue === "true") {
+    return true;
+  }
+
+  if (explicitValue === "false") {
+    return false;
+  }
+
+  return process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https://") ?? false;
 }
