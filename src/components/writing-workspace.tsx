@@ -41,6 +41,8 @@ import {
   type StoryInsightData,
 } from "@/components/editor/story-insight-panel";
 import { WritingStatsBar } from "@/components/editor/writing-stats-bar";
+import { TextToSpeechControls } from "@/components/voice/TextToSpeechControls";
+import { VoiceDraftPanel } from "@/components/voice/VoiceDraftPanel";
 import {
   parseEditorSettings,
   type EditorSettings,
@@ -287,6 +289,65 @@ export function WritingWorkspace({
     if (nextEditor) {
       editorSnapshotRef.current = makeEditorSnapshot(nextEditor);
     }
+  }
+
+  function handleInsertVoiceText(text: string) {
+    const trimmedText = text.trim();
+
+    if (!trimmedText) {
+      return;
+    }
+
+    const liveEditor = editorRef.current ?? editor;
+
+    if (liveEditor && !liveEditor.isDestroyed) {
+      liveEditor.chain().focus().insertContent(plainTextToTiptapContent(trimmedText)).run();
+
+      const snapshot = makeEditorSnapshot(liveEditor);
+      editorSnapshotRef.current = snapshot;
+      setDraft((current) => ({ ...current, ...snapshot }));
+      setDirty(true);
+      return;
+    }
+
+    // TODO: 추후 커서 위치 삽입 개선.
+    const nextBody = appendPlainTextBlock(draft.body, trimmedText);
+    setDraft((current) => ({
+      ...current,
+      body: nextBody,
+      contentHtml: plainTextToHtml(nextBody),
+      contentJson: JSON.stringify({
+        type: "doc",
+        content: plainTextToTiptapContent(nextBody),
+      }),
+    }));
+    setDirty(true);
+  }
+
+  function getSelectedEditorText() {
+    const liveEditor = editorRef.current ?? editor;
+
+    if (!liveEditor || liveEditor.isDestroyed) {
+      return "";
+    }
+
+    const { from, to } = liveEditor.state.selection;
+
+    if (from === to) {
+      return "";
+    }
+
+    return liveEditor.state.doc.textBetween(from, to, "\n").trim();
+  }
+
+  function getFullEditorText() {
+    const liveEditor = editorRef.current ?? editor;
+
+    if (liveEditor && !liveEditor.isDestroyed) {
+      return liveEditor.getText().trim();
+    }
+
+    return draft.body.trim();
   }
 
   function selectManuscript(manuscriptId: string) {
@@ -679,6 +740,14 @@ export function WritingWorkspace({
           </div>
           <SaveStatusBadge status={saveStatus} />
         </div>
+      </div>
+
+      <div className="grid gap-3 border-b border-[var(--line)] bg-[var(--panel)] p-4 xl:grid-cols-2">
+        <VoiceDraftPanel disabled={busy !== null} onInsert={handleInsertVoiceText} />
+        <TextToSpeechControls
+          getFullText={getFullEditorText}
+          getSelectedText={getSelectedEditorText}
+        />
       </div>
 
       <div className={settings.typewriterMode ? "story-typewriter-mode" : ""}>
@@ -1329,6 +1398,33 @@ function Stat({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 font-semibold text-[#25302b]">{value}</dd>
     </div>
   );
+}
+
+function plainTextToTiptapContent(value: string): JSONContent[] {
+  const paragraphs = value
+    .split(/\r?\n\s*\r?\n|\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length === 0) {
+    return [{ type: "paragraph" }];
+  }
+
+  return paragraphs.map((paragraph) => ({
+    type: "paragraph",
+    content: [{ type: "text", text: paragraph }],
+  }));
+}
+
+function appendPlainTextBlock(current: string, next: string) {
+  const currentText = current.trim();
+  const nextText = next.trim();
+
+  if (!currentText) {
+    return nextText;
+  }
+
+  return `${currentText}\n\n${nextText}`;
 }
 
 function plainTextToHtml(value: string) {

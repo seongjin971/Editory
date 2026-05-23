@@ -6,10 +6,36 @@
   --muted: #69726d;
   --line: #dfe3de;
   --panel: #ffffff;
+  --panel-soft: #f7f9f7;
+  --field: #ffffff;
+  --editor-shell: #f2f4f2;
+  --editor-paper: #fffefb;
+  --editor-foreground: #202722;
+  --shadow-soft: 0 18px 45px rgb(35 48 43 / 8%);
   --accent: #235f63;
   --accent-strong: #17484b;
   --warning: #9d5a18;
   --danger: #a33d3d;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --background: #0f1211;
+  --foreground: #eef3ef;
+  --muted: #a1aea7;
+  --line: #2b3631;
+  --panel: #171c1a;
+  --panel-soft: #202724;
+  --field: #111614;
+  --editor-shell: #121715;
+  --editor-paper: #181d1b;
+  --editor-foreground: #edf3ef;
+  --shadow-soft: 0 18px 45px rgb(0 0 0 / 28%);
+  --accent: #7fc9ca;
+  --accent-strong: #a8dedf;
+  --warning: #e2ad68;
+  --danger: #ff8e8e;
+  color-scheme: dark;
 }
 
 * {
@@ -39,8 +65,8 @@ textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
-  color: #25302b;
+  background: var(--field);
+  color: var(--foreground);
   outline: none;
 }
 
@@ -62,7 +88,7 @@ textarea {
 }
 
 .story-editor-shell {
-  background: #f2f4f2;
+  background: var(--editor-shell);
   padding: 28px 18px;
 }
 
@@ -70,11 +96,11 @@ textarea {
   width: min(100%, var(--editor-document-width));
   min-height: 680px;
   margin: 0 auto;
-  border: 1px solid #e1e6e2;
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: #fffefb;
-  box-shadow: 0 18px 45px rgb(35 48 43 / 8%);
-  color: #202722;
+  background: var(--editor-paper);
+  box-shadow: var(--shadow-soft);
+  color: var(--editor-foreground);
   font-family: var(--editor-font-family);
   font-size: var(--editor-font-size);
   line-height: var(--editor-line-height);
@@ -98,16 +124,16 @@ textarea {
 
 .story-editor-shell .ProseMirror blockquote {
   margin: 0 0 var(--editor-paragraph-spacing);
-  border-left: 3px solid #9cc2bc;
+  border-left: 3px solid var(--accent);
   padding: 0.2em 0 0.2em 1em;
-  color: #485650;
+  color: var(--muted);
 }
 
 .story-editor-shell .ProseMirror hr {
   margin: 32px auto;
   width: 42%;
   border: 0;
-  border-top: 1px solid #cbd4cf;
+  border-top: 1px solid var(--line);
 }
 
 .story-editor-shell .ProseMirror p.is-editor-empty:first-child::before {
@@ -121,4 +147,149 @@ textarea {
 .story-typewriter-mode .story-editor-shell .ProseMirror {
   padding-top: 30vh;
   padding-bottom: 35vh;
+}
+
+.theme-toggle {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: inline-flex;
+  height: 42px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 12px 30px rgb(20 28 24 / 14%);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 14px;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.theme-toggle-light-icon,
+.theme-toggle-light-label {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle-dark-icon,
+[data-theme="dark"] .theme-toggle-dark-label {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle-light-icon,
+[data-theme="dark"] .theme-toggle-light-label {
+  display: inline;
+}
+
+[data-theme="dark"] .theme-toggle {
+  box-shadow: 0 12px 30px rgb(0 0 0 / 34%);
+}
+
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: var(--field) !important;
+  border-color: var(--line) !important;
+  color: var(--foreground) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #77847d;
+}
+
+[data-theme="dark"] .bg-white {
+  background-color: var(--panel) !important;
+}
+
+[data-theme="dark"] .bg-\[\#f9faf8\],
+[data-theme="dark"] .bg-\[\#f7faf8\],
+[data-theme="dark"] .bg-\[\#f8faf8\],
+[data-theme="dark"] .bg-\[\#f7f9f7\],
+[data-theme="dark"] .bg-\[\#f7fbf9\],
+[data-theme="dark"] .bg-\[\#eef2ef\],
+[data-theme="dark"] .bg-\[\#eef7f4\],
+[data-theme="dark"] .bg-\[\#edf1ee\],
+[data-theme="dark"] .bg-\[\#e9eeeb\],
+[data-theme="dark"] .bg-\[\#e6ebe8\],
+[data-theme="dark"] .bg-\[\#d9e7e4\],
+[data-theme="dark"] .bg-\[\#dfe8e3\] {
+  background-color: var(--panel-soft) !important;
+}
+
+[data-theme="dark"] .bg-\[\#fff5f5\],
+[data-theme="dark"] .bg-\[\#fff7f7\],
+[data-theme="dark"] .bg-\[\#fdeaea\] {
+  background-color: #321d1f !important;
+}
+
+[data-theme="dark"] .bg-\[\#fff6df\] {
+  background-color: #2f2516 !important;
+}
+
+[data-theme="dark"] .bg-\[\#e4f1ec\],
+[data-theme="dark"] .bg-\[\#e9eef2\] {
+  background-color: #1c2826 !important;
+}
+
+[data-theme="dark"] .text-\[\#1d2320\],
+[data-theme="dark"] .text-\[\#25302b\],
+[data-theme="dark"] .text-\[\#34413b\],
+[data-theme="dark"] .text-\[\#4c5852\],
+[data-theme="dark"] .text-\[\#40504a\],
+[data-theme="dark"] .text-\[\#133f42\],
+[data-theme="dark"] .text-\[\#17484b\],
+[data-theme="dark"] .text-\[\#256044\],
+[data-theme="dark"] .text-\[\#40515f\] {
+  color: var(--foreground) !important;
+}
+
+[data-theme="dark"] .text-\[\#58615c\],
+[data-theme="dark"] .text-\[\#59625d\],
+[data-theme="dark"] .text-\[\#64706a\],
+[data-theme="dark"] .text-\[\#6b746f\],
+[data-theme="dark"] .text-\[\#7b8580\],
+[data-theme="dark"] .text-\[\#8b948f\] {
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] .text-\[\#7a4b12\] {
+  color: #f0c987 !important;
+}
+
+[data-theme="dark"] .text-\[\#8c3030\],
+[data-theme="dark"] .text-\[\#b89191\] {
+  color: #ffaaaa !important;
+}
+
+[data-theme="dark"] .border-\[\#cbd4cf\],
+[data-theme="dark"] .border-\[\#9cc2bc\],
+[data-theme="dark"] .border-\[\#b7c5bf\],
+[data-theme="dark"] .border-\[\#d9e7e4\],
+[data-theme="dark"] .border-\[\#e2b9b9\],
+[data-theme="dark"] .border-\[\#efcaca\] {
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .hover\:bg-white:hover,
+[data-theme="dark"] .hover\:bg-\[\#f4f7f5\]:hover,
+[data-theme="dark"] .hover\:bg-\[\#f7f9f7\]:hover,
+[data-theme="dark"] .hover\:bg-\[\#fff5f5\]:hover {
+  background-color: #252d29 !important;
+}
+
+[data-theme="dark"] .shadow-sm,
+[data-theme="dark"] .shadow-xl {
+  box-shadow: var(--shadow-soft) !important;
 }
