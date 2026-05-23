@@ -38,6 +38,7 @@ TESTER_EMAIL="test@test.com"
 TESTER_PASSWORD="테스터에게 줄 비밀번호"
 NODE_ENV="production"
 PORT="3000"
+NEXT_PUBLIC_BASE_PATH=""
 ```
 
 초기 설치/마이그레이션/테스터 생성/빌드:
@@ -92,6 +93,25 @@ npm run auth:reset-tester -- 새비밀번호
 - 접속 링크: `http://서버주소:포트` 또는 도메인
 - 이메일: `.env`의 `TESTER_EMAIL`
 - 비밀번호: `.env`의 `TESTER_PASSWORD`
+
+## 기존 도메인 아래 경로로 붙일 때
+
+이미 같은 서버의 80번 포트에 다른 서비스가 있다면 Editory를 `/editory` 같은 하위 경로로 붙일 수 있습니다. 이때 `.env`에 아래 값을 추가한 뒤 다시 빌드합니다.
+
+```bash
+NEXT_PUBLIC_BASE_PATH="/editory"
+npm run build
+pm2 restart editory --update-env
+```
+
+Apache를 쓰는 경우 기존 `/` 프록시보다 위에 아래 규칙을 둡니다.
+
+```apache
+ProxyPass /editory http://127.0.0.1:3200/editory
+ProxyPassReverse /editory http://127.0.0.1:3200/editory
+ProxyPass /editory/ http://127.0.0.1:3200/editory/
+ProxyPassReverse /editory/ http://127.0.0.1:3200/editory/
+```
 
 ## 주의
 
