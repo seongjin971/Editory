@@ -1,6 +1,6 @@
 # Editory
 
-AI Story Structure Analyzer + Writing Workspace MVP입니다. 원고를 저장하고 로컬 Mock analyzer로 스토리라인, 타임라인, 등장인물, 사건 비중, 설정 충돌 후보를 생성합니다. 외부 API 키는 필요하지 않습니다.
+AI Story Structure Analyzer + Writing Workspace MVP입니다. 원고를 저장하고 로컬 Mock analyzer 또는 OpenAI 기반 LLM analyzer로 스토리라인, 타임라인, 등장인물, 사건 비중, 설정 충돌 후보를 생성합니다. 기본 설정은 외부 API 키 없이 실행되는 Mock analyzer입니다.
 
 ## 실행
 
@@ -27,6 +27,7 @@ DATABASE_URL="file:./dev.db"
 SESSION_SECRET="replace-with-a-random-32-byte-secret"
 TESTER_EMAIL="test@test.com"
 TESTER_PASSWORD="102800"
+STORY_ANALYZER_PROVIDER="mock"
 ```
 
 tester 비밀번호를 재설정하려면 로컬 관리자 터미널에서 실행합니다.
@@ -41,20 +42,29 @@ npm run auth:reset-tester -- new-password
 - Prisma ORM + SQLite
 - Zod 기반 `StoryAnalysisSchema`
 - `MockStoryAnalyzer`로 deterministic 구조 분석
-- `LlmStoryAnalyzer` placeholder 포함
+- `LlmStoryAnalyzer`로 OpenAI Responses API 구조화 출력 연동 가능
 - 쓰기 우선 워크스페이스(`/projects/[projectId]/write`)
 - `.docx` Word 문서 가져오기 후 리치 텍스트 에디터에서 이어 쓰기
 
-## LLM analyzer로 교체하기
+## OpenAI analyzer 사용하기
 
 분석기는 `src/lib/analysis/story-analyzer.ts`의 `StoryAnalyzer` 인터페이스를 따릅니다.
 
-1. `src/lib/analysis/llm-story-analyzer.ts`에서 실제 provider 호출을 구현합니다.
-2. provider 응답 JSON을 `StoryAnalysisSchema.parse(...)`로 검증합니다.
-3. `src/lib/analysis/index.ts`의 `getStoryAnalyzer()`가 `new LlmStoryAnalyzer()`를 반환하도록 바꿉니다.
-4. 저장 로직은 `src/lib/data.ts`의 `saveAnalysisResult()`가 그대로 처리합니다.
+실제 OpenAI 분석을 쓰려면 `.env`에 아래 값을 추가합니다. `.env`는 GitHub에 올리지 않습니다.
 
-현재 MVP는 `MockStoryAnalyzer`를 사용하므로 로컬에서 바로 실행됩니다.
+```bash
+STORY_ANALYZER_PROVIDER="openai"
+STORY_ANALYZER_LLM_SCOPE="chapter"
+OPENAI_API_KEY="sk-..."
+OPENAI_MODEL="gpt-5-mini"
+OPENAI_ANALYSIS_MAX_CHARS="18000"
+```
+
+- `STORY_ANALYZER_PROVIDER="mock"`이면 항상 로컬 Mock 분석기를 사용합니다.
+- `STORY_ANALYZER_PROVIDER="openai"`이고 `OPENAI_API_KEY`가 있으면 LLM 분석기를 사용합니다.
+- 기본 `STORY_ANALYZER_LLM_SCOPE="chapter"`는 현재 챕터 분석만 OpenAI로 실행합니다. 전체 프로젝트 분석까지 OpenAI로 보내려면 `all`로 바꿉니다.
+- OpenAI 호출 실패, 키 누락, 응답 검증 실패 시 기존 Mock analyzer로 자동 fallback됩니다.
+- provider 응답은 `StoryAnalysisSchema.parse(...)`로 검증한 뒤 `src/lib/data.ts`의 `saveAnalysisResult()`가 그대로 저장합니다.
 
 ## Cafe24 테스트 배포
 

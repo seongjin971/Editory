@@ -8,9 +8,40 @@ const FILLER_WORDS = [
   "그러니까",
   "저기",
   "막",
+  "에이",
+  "어유",
+  "에휴",
 ];
 
 const SENTENCE_END_PATTERN = /[.!?。！？…]$/;
+
+// Spoken dictation commands -> punctuation / newline. User-controlled, near-zero false-positive.
+const DICTATION_COMMANDS: Array<[RegExp, string]> = [
+  [/\s*(?:마침표|온점)\s*/g, ". "],
+  [/\s*(?:쉼표|반점|콤마)\s*/g, ", "],
+  [/\s*(?:물음표|의문부호)\s*/g, "? "],
+  [/\s*(?:느낌표|감탄부호)\s*/g, "! "],
+  [/\s*(?:새\s*문단|새문단|단락\s*나눔)\s*/g, "\n\n"],
+  [/\s*(?:줄바꿈|개행|엔터)\s*/g, "\n"],
+];
+
+// Korean declarative / interrogative / exclamatory final endings, used to gate sentence-break insertion.
+const SENTENCE_END_VERB_FORMS =
+  "(?:다|요|까|네|군|지|구나|어요|아요|에요|예요|니다|습니다|입니다|군요|네요|까요)";
+
+// Conjunctions / discourse markers that strongly tend to start a new sentence when preceded by a verb ending.
+const SENTENCE_STARTERS = [
+  "하지만",
+  "그러나",
+  "따라서",
+  "그러므로",
+  "게다가",
+  "또한",
+  "한편",
+  "그리고",
+  "그래서",
+  "그런데",
+];
 
 export function cleanVoiceDraftText(input: string) {
   // TODO: 추후 프로젝트 등장인물/지명/이전 문맥을 참고한 LLM 보정 연결.
@@ -24,16 +55,52 @@ export function cleanVoiceDraftText(input: string) {
     return "";
   }
 
+  // Filler/repeat removal first so dictation \n inserts later are not collapsed
+  // by the space-based tokenizer in those helpers.
   const withoutFillers = removeFillerWords(normalized);
   const withoutRepeats = collapseRepeatedTokens(withoutFillers);
-  const tidyPunctuation = withoutRepeats
-    .replace(/\s+([,.!?。！？])/g, "$1")
+  const withCommands = applyDictationCommands(withoutRepeats);
+  const tidyPunctuation = withCommands
+    .replace(/[ \t]+([,.!?。！？])/g, "$1")
     .replace(/([,.!?。！？])(?=\S)/g, "$1 ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
     .trim();
-  const shaped = splitLongSentences(tidyPunctuation);
+  const withBreaks = insertSentenceBreaks(tidyPunctuation);
+  const shaped = splitLongSentences(withBreaks);
 
   return ensureFinalPunctuation(shaped);
+}
+
+function applyDictationCommands(value: string) {
+  let result = value;
+
+  for (const [pattern, replacement] of DICTATION_COMMANDS) {
+    result = result.replace(pattern, replacement);
+  }
+
+  // Collapse runs of duplicate punctuation that can appear when commands stack (e.g. "마침표 줄바꿈").
+  result = result
+    .replace(/\.\s*\.+/g, ".")
+    .replace(/,\s*,+/g, ",")
+    .replace(/\?\s*\?+/g, "?")
+    .replace(/!\s*!+/g, "!");
+
+  return result;
+}
+
+function insertSentenceBreaks(value: string) {
+  let result = value;
+
+  for (const starter of SENTENCE_STARTERS) {
+    const pattern = new RegExp(
+      `([가-힣]+?${SENTENCE_END_VERB_FORMS})\\s+(${starter})(?=\\s|$|[.!?,])`,
+      "gu",
+    );
+    result = result.replace(pattern, "$1. $2");
+  }
+
+  return result;
 }
 
 function removeFillerWords(value: string) {
@@ -71,8 +138,10 @@ function normalizeToken(value: string) {
 }
 
 function splitLongSentences(value: string) {
+  // Use [ \t]+ instead of \s+ so that explicit paragraph breaks (\n\n from "새 문단")
+  // and single \n (from "줄바꿈") survive the split/join roundtrip.
   const sentences = value
-    .split(/(?<=[.!?。！？])\s+/)
+    .split(/(?<=[.!?。！？])[ \t]+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
 

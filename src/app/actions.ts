@@ -431,7 +431,7 @@ async function runProjectAnalysis(projectId: string) {
     where: { projectId },
     orderBy: { chapterNumber: "asc" },
   });
-  const analyzer = getStoryAnalyzer();
+  const analyzer = getStoryAnalyzer("project");
 
   try {
     const analysis = await analyzer.analyze({ project, manuscripts });
@@ -456,7 +456,7 @@ async function runChapterAnalysis(projectId: string, manuscriptId: string) {
       projectId,
     },
   });
-  const analyzer = getStoryAnalyzer();
+  const analyzer = getStoryAnalyzer("chapter");
 
   try {
     const analysis = await analyzer.analyze({

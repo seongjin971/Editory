@@ -1,5 +1,6 @@
 import { Badge } from "@/components/badge";
 import { EmptyState } from "@/components/empty-state";
+import { ProjectWorkspaceFrame } from "@/components/project-workspace-frame";
 import { getLatestAnalysis } from "@/lib/data";
 
 export default async function TimelinePage({
@@ -11,15 +12,32 @@ export default async function TimelinePage({
   const analysis = await getLatestAnalysis(projectId);
 
   return (
-    <div className="space-y-5">
-      <header className="rounded-lg border border-[var(--line)] bg-white p-6">
-        <p className="text-sm font-semibold text-[var(--accent)]">사건 타임라인</p>
-        <h2 className="mt-2 text-2xl font-bold">서술 순서와 시간 순서</h2>
-      </header>
-
+    <ProjectWorkspaceFrame
+      companion={
+        <TimelineCompanion
+          events={analysis?.timelineEvents.map((event) => ({
+            confidence: event.confidence,
+            id: event.id,
+            narrativeOrder: event.narrativeOrder,
+            timeLabel: event.estimatedTimeLabel,
+            title: event.title,
+          })) ?? []}
+        />
+      }
+      companionTitle="시간표 요약"
+      eyebrow="사건 타임라인"
+      meta={
+        analysis
+          ? `${analysis.timelineEvents.length}개 사건 · 서술 순서와 시간 순서 비교`
+          : "분석 결과 없음"
+      }
+      pageKey="timeline"
+      projectId={projectId}
+      title="서술 순서와 시간 순서"
+    >
       {!analysis ? (
         <EmptyState title="타임라인이 없습니다">
-          분석을 실행하면 사건의 서술 순서와 추정 시간 순서를 분리해 표시합니다.
+          분석을 실행하면 사건을 서술 순서와 추정 시간 순서로 나누어 보여줍니다.
         </EmptyState>
       ) : (
         <section className="overflow-hidden rounded-lg border border-[var(--line)] bg-white">
@@ -60,7 +78,9 @@ export default async function TimelinePage({
                     <td className="px-4 py-4">{event.location}</td>
                     <td className="px-4 py-4 text-[var(--muted)]">{event.cause}</td>
                     <td className="px-4 py-4 text-[var(--muted)]">{event.effect}</td>
-                    <td className="px-4 py-4">{Math.round(event.confidence * 100)}%</td>
+                    <td className="px-4 py-4">
+                      {Math.round(event.confidence * 100)}%
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -68,6 +88,44 @@ export default async function TimelinePage({
           </div>
         </section>
       )}
+    </ProjectWorkspaceFrame>
+  );
+}
+
+function TimelineCompanion({
+  events,
+}: {
+  events: Array<{
+    confidence: number;
+    id: string;
+    narrativeOrder: number;
+    timeLabel: string;
+    title: string;
+  }>;
+}) {
+  if (events.length === 0) {
+    return (
+      <p className="text-sm leading-6 text-[var(--muted)]">
+        분석 결과가 생기면 이곳에서 시간표를 빠르게 훑어볼 수 있습니다.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {events.map((event) => (
+        <div className="rounded-md bg-[var(--panel-soft)] p-3 text-sm" key={event.id}>
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-bold">{event.title}</p>
+            <span className="text-xs font-bold text-[var(--accent)]">
+              {Math.round(event.confidence * 100)}%
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            서술 {event.narrativeOrder} · {event.timeLabel}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }

@@ -15,6 +15,13 @@ export default async function DashboardPage() {
             프로젝트
           </h1>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Link
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--panel-soft)]"
+          href="/settings"
+        >
+          전역 설정
+        </Link>
         <Link
           className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)]"
           href="/projects/new"
@@ -22,6 +29,7 @@ export default async function DashboardPage() {
           <Plus aria-hidden="true" className="h-4 w-4" />
           새 프로젝트
         </Link>
+        </div>
       </header>
 
       {projects.length === 0 ? (

@@ -6,6 +6,7 @@ import {
   Clock3,
   FileText,
   GitBranch,
+  Globe2,
   LayoutDashboard,
   PencilLine,
   Settings,
@@ -38,9 +39,12 @@ const navGroups = [
   },
   {
     title: "관리",
-    links: [{ label: "프로젝트 설정", href: "/settings", icon: Settings }],
+    links: [
+      { label: "프로젝트 설정", href: "/settings", icon: Settings },
+      { label: "전역 설정", href: "/settings", global: true, icon: Globe2 },
+    ],
   },
-];
+] as const;
 
 export function WorkspaceNav({
   compact = false,
@@ -78,11 +82,13 @@ export function WorkspaceNav({
           ) : null}
 
           {group.links.map((link) => {
-            const href = `${base}${link.href}`;
+            const href = "global" in link && link.global ? link.href : `${base}${link.href}`;
             const active =
-              link.href === ""
-                ? pathname === base
-                : pathname === href || pathname.startsWith(`${href}/`);
+              "global" in link && link.global
+                ? pathname === link.href || pathname.startsWith(`${link.href}/`)
+                : link.href === ""
+                  ? pathname === base
+                  : pathname === href || pathname.startsWith(`${href}/`);
             const Icon = link.icon;
 
             return (

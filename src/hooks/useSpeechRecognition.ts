@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  ensureMicrophonePermission,
+  isSpeechRecognitionNetworkError,
+} from "@/lib/voice/microphoneAccess";
+import { decayLevelTarget, smoothLevel } from "@/lib/voice/audioLevel";
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
@@ -41,6 +46,10 @@ type SpeechRecognitionLike = {
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onstart: (() => void) | null;
+  onsoundstart: (() => void) | null;
+  onsoundend: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
 };
 
 declare global {
@@ -54,6 +63,57 @@ type StartSpeechRecognitionOptions = {
   lang?: string;
 };
 
+const RESTART_DELAY_MS = 50;
+
+function joinTranscriptSegment(current: string, next: string) {
+  const chunk = next.trim();
+
+  if (!chunk) {
+    return current;
+  }
+
+  if (!current) {
+    return chunk;
+  }
+
+  if (/[\s]$/.test(current) || /^[,.!?;:)]/.test(chunk)) {
+    return `${current}${chunk}`.trim();
+  }
+
+  return `${current} ${chunk}`.trim();
+}
+
+function mergeInterimWithoutOverlap(current: string, interim: string) {
+  const committed = current.trim();
+  const pending = interim.trim();
+
+  if (!pending) {
+    return committed;
+  }
+
+  if (!committed) {
+    return pending;
+  }
+
+  if (committed === pending || committed.endsWith(pending)) {
+    return committed;
+  }
+
+  if (pending.startsWith(committed)) {
+    return pending;
+  }
+
+  const maxOverlap = Math.min(committed.length, pending.length);
+
+  for (let length = maxOverlap; length > 0; length -= 1) {
+    if (committed.slice(-length) === pending.slice(0, length)) {
+      return `${committed}${pending.slice(length)}`.trim();
+    }
+  }
+
+  return joinTranscriptSegment(committed, pending);
+}
+
 export function useSpeechRecognition() {
   const supported = useSyncExternalStore(
     subscribeToBrowserCapability,
@@ -64,10 +124,67 @@ export function useSpeechRecognition() {
   const transcriptRef = useRef("");
   const interimTranscriptRef = useRef("");
   const stoppingRef = useRef(false);
+  const errorOccurredRef = useRef(false);
+  const processedFinalCountRef = useRef(0);
+  const lastSpeechAtRef = useRef<number | null>(null);
+  const listeningStartedAtRef = useRef<number | null>(null);
+  const sessionStartedRef = useRef(false);
+  const inputLevelRef = useRef(0);
+  const inputLevelTargetRef = useRef(0);
+  const levelRafRef = useRef<number | null>(null);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getInputLevel = useCallback(() => inputLevelRef.current, []);
+
+  const stopLevelLoop = useCallback(() => {
+    if (levelRafRef.current !== null) {
+      cancelAnimationFrame(levelRafRef.current);
+      levelRafRef.current = null;
+    }
+
+    inputLevelRef.current = 0;
+    inputLevelTargetRef.current = 0;
+  }, []);
+
+  const bumpInputLevel = useCallback((amount: number) => {
+    inputLevelTargetRef.current = Math.min(
+      1,
+      Math.max(inputLevelTargetRef.current, amount),
+    );
+  }, []);
+
+  const startLevelLoop = useCallback(() => {
+    if (levelRafRef.current !== null) {
+      return;
+    }
+
+    const tick = () => {
+      inputLevelTargetRef.current = decayLevelTarget(inputLevelTargetRef.current);
+      inputLevelRef.current = smoothLevel(
+        inputLevelRef.current,
+        inputLevelTargetRef.current,
+        0.58,
+        0.14,
+      );
+      levelRafRef.current = requestAnimationFrame(tick);
+    };
+
+    levelRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const markSpeechActivity = useCallback((text: string) => {
+    if (!text.trim()) {
+      return;
+    }
+
+    lastSpeechAtRef.current = Date.now();
+    bumpInputLevel(
+      Math.min(1, 0.48 + Math.min(text.trim().length, 18) * 0.022),
+    );
+  }, [bumpInputLevel]);
 
   const stop = useCallback(() => {
     stoppingRef.current = true;
@@ -79,7 +196,10 @@ export function useSpeechRecognition() {
     }
 
     setListening(false);
-  }, []);
+    stopLevelLoop();
+    lastSpeechAtRef.current = null;
+    listeningStartedAtRef.current = null;
+  }, [stopLevelLoop]);
 
   const reset = useCallback(() => {
     transcriptRef.current = "";
@@ -104,17 +224,31 @@ export function useSpeechRecognition() {
       return false;
     }
 
-    const permissionReady = await requestMicrophoneAccess();
+    const permissionReady = await ensureMicrophonePermission();
 
     if (!permissionReady.ok) {
       setError(permissionReady.message ?? "마이크 권한을 확인하지 못했습니다.");
       return false;
     }
 
-    recognitionRef.current?.abort();
+    const stale = recognitionRef.current;
+    recognitionRef.current = null;
+
+    if (stale) {
+      try {
+        stale.abort();
+      } catch {
+        // ignore: aborting an already-ended instance is harmless
+      }
+    }
+
     stoppingRef.current = false;
+    errorOccurredRef.current = false;
+    processedFinalCountRef.current = 0;
+    sessionStartedRef.current = false;
     transcriptRef.current = "";
     interimTranscriptRef.current = "";
+    lastSpeechAtRef.current = null;
 
     const recognition = new Recognition();
     recognitionRef.current = recognition;
@@ -126,58 +260,215 @@ export function useSpeechRecognition() {
     setError(null);
     setTranscript("");
     setInterimTranscript("");
-    setListening(true);
+    stopLevelLoop();
 
     recognition.onstart = () => {
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
+
+      sessionStartedRef.current = true;
+      processedFinalCountRef.current = 0;
+      listeningStartedAtRef.current = Date.now();
+      lastSpeechAtRef.current = Date.now();
       setListening(true);
       setError(null);
+      startLevelLoop();
+    };
+
+    recognition.onsoundstart = () => {
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
+
+      bumpInputLevel(0.34 + Math.random() * 0.14);
+    };
+
+    recognition.onspeechstart = () => {
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
+
+      bumpInputLevel(0.58 + Math.random() * 0.2);
+    };
+
+    recognition.onsoundend = () => {
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
+
+      inputLevelTargetRef.current *= 0.35;
+    };
+
+    recognition.onspeechend = () => {
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
+
+      inputLevelTargetRef.current = Math.min(inputLevelTargetRef.current, 0.1);
     };
 
     recognition.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
 
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
-        const text = result[0]?.transcript ?? "";
 
-        if (result.isFinal) {
-          finalText = `${finalText} ${text}`.trim();
-        } else {
-          interimText = `${interimText} ${text}`.trim();
+        if (!result.isFinal || index < processedFinalCountRef.current) {
+          continue;
+        }
+
+        const chunk = (result[0]?.transcript ?? "").trim();
+
+        if (chunk) {
+          transcriptRef.current = joinTranscriptSegment(transcriptRef.current, chunk);
+          setTranscript(transcriptRef.current);
+          markSpeechActivity(chunk);
+        }
+
+        processedFinalCountRef.current = index + 1;
+      }
+
+      let sessionInterim = "";
+
+      for (
+        let index = processedFinalCountRef.current;
+        index < event.results.length;
+        index += 1
+      ) {
+        const result = event.results[index];
+
+        if (!result.isFinal) {
+          sessionInterim += result[0]?.transcript ?? "";
         }
       }
 
-      if (finalText) {
-        transcriptRef.current = `${transcriptRef.current} ${finalText}`.trim();
-        setTranscript(transcriptRef.current);
+      interimTranscriptRef.current = sessionInterim.trim();
+
+      if (!stoppingRef.current) {
+        setInterimTranscript(interimTranscriptRef.current);
+      } else {
+        setInterimTranscript("");
       }
 
-      interimTranscriptRef.current = interimText;
-      setInterimTranscript(interimText);
+      if (sessionInterim.trim()) {
+        markSpeechActivity(sessionInterim);
+      }
     };
 
     recognition.onerror = (event) => {
+      if (recognitionRef.current !== recognition) {
+        return;
+      }
+
+      if (event.error === "no-speech" || event.error === "aborted") {
+        return;
+      }
+
+      errorOccurredRef.current = true;
       setError(mapRecognitionError(event));
       setListening(false);
+      stopLevelLoop();
+
+      if (isSpeechRecognitionNetworkError(event.error)) {
+        recognitionRef.current = null;
+        stoppingRef.current = false;
+      }
     };
 
     recognition.onend = () => {
-      if (interimTranscriptRef.current) {
-        transcriptRef.current =
-          `${transcriptRef.current} ${interimTranscriptRef.current}`.trim();
-        setTranscript(transcriptRef.current);
+      if (recognitionRef.current !== recognition) {
+        return;
       }
 
-      setListening(false);
-      setInterimTranscript("");
+      // Drop interim on segment boundaries. Committing it here duplicates text once
+      // Chrome finalizes the same phrase in the next session.
+      if (stoppingRef.current && interimTranscriptRef.current.trim()) {
+        const merged = mergeInterimWithoutOverlap(
+          transcriptRef.current,
+          interimTranscriptRef.current,
+        );
+
+        if (merged !== transcriptRef.current) {
+          transcriptRef.current = merged;
+          setTranscript(merged);
+        }
+      }
+
       interimTranscriptRef.current = "";
-      recognitionRef.current = null;
-      stoppingRef.current = false;
+      setInterimTranscript("");
+      processedFinalCountRef.current = 0;
+
+      if (!sessionStartedRef.current && !stoppingRef.current) {
+        errorOccurredRef.current = true;
+        setError(mapImmediateEndError());
+        setListening(false);
+        stopLevelLoop();
+        recognitionRef.current = null;
+        stoppingRef.current = false;
+        errorOccurredRef.current = false;
+        lastSpeechAtRef.current = null;
+        listeningStartedAtRef.current = null;
+        return;
+      }
+
+      if (stoppingRef.current || errorOccurredRef.current) {
+        setListening(false);
+        stopLevelLoop();
+        recognitionRef.current = null;
+        stoppingRef.current = false;
+        errorOccurredRef.current = false;
+        lastSpeechAtRef.current = null;
+        listeningStartedAtRef.current = null;
+        return;
+      }
+
+      window.setTimeout(() => {
+        if (
+          recognitionRef.current !== recognition ||
+          stoppingRef.current ||
+          errorOccurredRef.current
+        ) {
+          return;
+        }
+
+        try {
+          recognition.start();
+        } catch {
+          window.setTimeout(() => {
+            if (
+              recognitionRef.current !== recognition ||
+              stoppingRef.current ||
+              errorOccurredRef.current
+            ) {
+              return;
+            }
+
+            try {
+              recognition.start();
+            } catch {
+              errorOccurredRef.current = true;
+              setError(
+                "음성 인식을 다시 시작하지 못했습니다. 중지 후 Chrome 또는 Edge에서 다시 시도해 주세요.",
+              );
+              setListening(false);
+              stopLevelLoop();
+              recognitionRef.current = null;
+              stoppingRef.current = false;
+              errorOccurredRef.current = false;
+              lastSpeechAtRef.current = null;
+              listeningStartedAtRef.current = null;
+            }
+          }, RESTART_DELAY_MS);
+        }
+      }, RESTART_DELAY_MS);
     };
 
     try {
       recognition.start();
+      setListening(true);
       return true;
     } catch {
       setError("음성 입력을 시작하지 못했습니다. 브라우저를 새로고침한 뒤 다시 시도해 주세요.");
@@ -185,16 +476,18 @@ export function useSpeechRecognition() {
       recognitionRef.current = null;
       return false;
     }
-  }, []);
+  }, [bumpInputLevel, markSpeechActivity, startLevelLoop, stopLevelLoop]);
 
   useEffect(() => {
     return () => {
+      stopLevelLoop();
       recognitionRef.current?.abort();
     };
-  }, []);
+  }, [stopLevelLoop]);
 
   return {
     error,
+    getInputLevel,
     interimTranscript,
     listening,
     reset,
@@ -203,39 +496,6 @@ export function useSpeechRecognition() {
     supported,
     transcript,
   };
-}
-
-async function requestMicrophoneAccess() {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    return { ok: true };
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((track) => track.stop());
-    return { ok: true };
-  } catch (error) {
-    const name = error instanceof DOMException ? error.name : "";
-
-    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-      return {
-        ok: false,
-        message: "마이크 권한이 거부되었습니다. 주소창의 권한 설정에서 마이크를 허용해 주세요.",
-      };
-    }
-
-    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-      return {
-        ok: false,
-        message: "사용 가능한 마이크를 찾지 못했습니다. 입력 장치를 확인해 주세요.",
-      };
-    }
-
-    return {
-      ok: false,
-      message: "마이크를 시작하지 못했습니다. 다른 앱이 마이크를 사용 중인지 확인해 주세요.",
-    };
-  }
 }
 
 function getSpeechRecognitionConstructor() {
@@ -256,6 +516,10 @@ function subscribeToBrowserCapability(onStoreChange: () => void) {
   return () => window.clearTimeout(timer);
 }
 
+function mapImmediateEndError() {
+  return "음성 인식이 바로 종료되었습니다. 마이크 테스트를 중지한 뒤 잠시 기다리거나, Chrome/Edge에서 http://127.0.0.1:3000 을 직접 열어 주세요.";
+}
+
 function mapRecognitionError(event: SpeechRecognitionErrorEventLike) {
   if (event.error === "not-allowed" || event.error === "service-not-allowed") {
     return "마이크 권한이 거부되었습니다. 주소창의 권한 설정에서 마이크를 허용해 주세요.";
@@ -270,7 +534,7 @@ function mapRecognitionError(event: SpeechRecognitionErrorEventLike) {
   }
 
   if (event.error === "network") {
-    return "브라우저 음성 인식 서비스에 연결하지 못했습니다. Chrome 또는 Edge에서 네트워크 연결을 확인한 뒤 다시 시도해 주세요.";
+    return "브라우저 음성 인식 서비스에 연결하지 못했습니다. Cursor 내장 브라우저에서는 동작하지 않을 수 있습니다. Chrome 또는 Edge에서 http://127.0.0.1:3000 을 직접 열어 주세요.";
   }
 
   if (event.error === "language-not-supported") {

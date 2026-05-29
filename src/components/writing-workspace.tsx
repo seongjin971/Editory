@@ -7,17 +7,29 @@ import {
   BarChart3,
   BookOpen,
   ChevronDown,
+  Clock3,
   FilePlus2,
   FileUp,
   Focus,
+  GitBranch,
+  Mic,
   PanelLeft,
   PanelRight,
   Save,
   Sparkles,
+  Settings2,
+  StickyNote,
   Trash2,
+  Users,
+  Volume2,
+  Wand2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { ChangeEvent, ReactNode } from "react";
+import type {
+  ChangeEvent,
+  ReactNode,
+  RefObject,
+} from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 import {
@@ -40,9 +52,11 @@ import {
   StoryInsightPanel,
   type StoryInsightData,
 } from "@/components/editor/story-insight-panel";
+import { WritingAssistantPanel } from "@/components/editor/writing-assistant-panel";
 import { WritingStatsBar } from "@/components/editor/writing-stats-bar";
 import { TextToSpeechControls } from "@/components/voice/TextToSpeechControls";
 import { VoiceDraftPanel } from "@/components/voice/VoiceDraftPanel";
+import { VoiceMicProvider } from "@/components/voice/voice-mic-context";
 import {
   parseEditorSettings,
   type EditorSettings,
@@ -82,8 +96,11 @@ type CompanionView =
   | "chapters"
   | "insight"
   | "settings"
-  | "memo";
-type CommandMenu = null | "chapters" | "view" | "analysis";
+  | "memo"
+  | "assistant"
+  | "voice"
+  | "reader";
+type CommandMenu = null | "chapters" | "materials" | "tools" | "view" | "analysis";
 
 const layoutLabels: Record<LayoutMode, string> = {
   draft: "원고 집중",
@@ -100,6 +117,23 @@ const companionLabels: Record<CompanionView, string> = {
   insight: "AI 인사이트",
   settings: "문서 설정",
   memo: "메모",
+  assistant: "집필 점검",
+  voice: "음성 입력",
+  reader: "읽어주기",
+};
+
+const companionSectionLabels: Record<CompanionView, string> = {
+  chapters: "작가 자료",
+  memo: "작가 자료",
+  settings: "작가 자료",
+  timeline: "분석 자료",
+  storyline: "분석 자료",
+  characters: "분석 자료",
+  plot: "분석 자료",
+  insight: "분석 자료",
+  assistant: "집필 도구",
+  voice: "집필 도구",
+  reader: "집필 도구",
 };
 
 type WritingWorkspaceProps = {
@@ -139,11 +173,13 @@ export function WritingWorkspace({
   const editorSnapshotRef = useRef<RichEditorSnapshot | null>(null);
   const wordInputRef = useRef<HTMLInputElement | null>(null);
   const splitRef = useRef<HTMLDivElement | null>(null);
+  const splitHandleRef = useRef<HTMLDivElement | null>(null);
+  const splitDragCleanupRef = useRef<(() => void) | null>(null);
   const storageLoadedRef = useRef(false);
   const [focusMode, setFocusMode] = useState(false);
   const [layoutMode, setLayoutModeState] = useState<LayoutMode>("splitLeft");
   const [companionView, setCompanionViewState] =
-    useState<CompanionView>("timeline");
+    useState<CompanionView>("chapters");
   const [companionPercent, setCompanionPercent] = useState(38);
   const [draggingSplit, setDraggingSplit] = useState(false);
   const [openMenu, setOpenMenu] = useState<CommandMenu>(null);
@@ -221,35 +257,119 @@ export function WritingWorkspace({
   }, [companionPercent, projectId]);
 
   useEffect(() => {
-    if (!draggingSplit) {
+    return () => {
+      splitDragCleanupRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const handle = splitHandleRef.current;
+
+    if (!handle || !showCompanion) {
       return;
     }
 
-    function handlePointerMove(event: PointerEvent) {
+    function updateSplitPercentFromClientX(clientX: number) {
       const rect = splitRef.current?.getBoundingClientRect();
 
-      if (!rect) {
+      if (!rect || rect.width <= 0) {
         return;
       }
 
       const rawPercent =
         layoutMode === "splitRight"
-          ? ((rect.right - event.clientX) / rect.width) * 100
-          : ((event.clientX - rect.left) / rect.width) * 100;
+          ? ((rect.right - clientX) / rect.width) * 100
+          : ((clientX - rect.left) / rect.width) * 100;
       setCompanionPercent(clamp(rawPercent, 24, 56));
     }
 
-    function handlePointerUp() {
+    function endDrag(
+      previousCursor: string,
+      previousUserSelect: string,
+      move: (event: Event) => void,
+      stop: () => void,
+    ) {
       setDraggingSplit(false);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("touchend", stop);
+      window.removeEventListener("touchcancel", stop);
+      splitDragCleanupRef.current = null;
     }
 
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+    function start(event: Event) {
+      const startX = readClientX(event);
+
+      if (startX === null || splitDragCleanupRef.current) {
+        return;
+      }
+
+      const dragStartX = startX;
+      event.preventDefault();
+      setDraggingSplit(true);
+      updateSplitPercentFromClientX(dragStartX);
+
+      const previousCursor = document.body.style.cursor;
+      const previousUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      function move(moveEvent: Event) {
+        const clientX = readClientX(moveEvent);
+
+        if (clientX === null) {
+          return;
+        }
+
+        moveEvent.preventDefault();
+        updateSplitPercentFromClientX(clientX);
+      }
+
+      function stop() {
+        endDrag(previousCursor, previousUserSelect, move, stop);
+      }
+
+      window.addEventListener("mousemove", move);
+      window.addEventListener("pointermove", move);
+      window.addEventListener("touchmove", move, { passive: false });
+      window.addEventListener("mouseup", stop);
+      window.addEventListener("pointerup", stop);
+      window.addEventListener("pointercancel", stop);
+      window.addEventListener("touchend", stop);
+      window.addEventListener("touchcancel", stop);
+      splitDragCleanupRef.current = stop;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const signedStep = layoutMode === "splitRight" ? -direction * 4 : direction * 4;
+      setCompanionPercent((current) => clamp(current + signedStep, 24, 56));
+    }
+
+    handle.addEventListener("mousedown", start);
+    handle.addEventListener("pointerdown", start);
+    handle.addEventListener("touchstart", start, { passive: false });
+    handle.addEventListener("keydown", handleKeyDown);
+
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
+      splitDragCleanupRef.current?.();
+      handle.removeEventListener("mousedown", start);
+      handle.removeEventListener("pointerdown", start);
+      handle.removeEventListener("touchstart", start);
+      handle.removeEventListener("keydown", handleKeyDown);
     };
-  }, [draggingSplit, layoutMode]);
+  }, [layoutMode, showCompanion]);
 
   function setLayoutMode(nextMode: LayoutMode) {
     setLayoutModeState(nextMode);
@@ -637,6 +757,102 @@ export function WritingWorkspace({
           </CommandMenuButton>
 
           <CommandMenuButton
+            label="자료"
+            menu="materials"
+            onToggle={setOpenMenu}
+            openMenu={openMenu}
+          >
+            <MenuGroupLabel>작가 자료</MenuGroupLabel>
+            <MenuItem
+              active={companionView === "chapters"}
+              icon={<BookOpen aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("chapters")}
+            >
+              챕터 목록
+            </MenuItem>
+            <MenuItem
+              active={companionView === "memo"}
+              icon={<StickyNote aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("memo")}
+            >
+              현재 챕터 메모
+            </MenuItem>
+            <MenuItem
+              active={companionView === "settings"}
+              icon={<Settings2 aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("settings")}
+            >
+              문서 설정
+            </MenuItem>
+            <MenuDivider />
+            <MenuGroupLabel>분석 자료</MenuGroupLabel>
+            <MenuItem
+              active={companionView === "timeline"}
+              icon={<Clock3 aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("timeline")}
+            >
+              타임라인
+            </MenuItem>
+            <MenuItem
+              active={companionView === "storyline"}
+              icon={<GitBranch aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("storyline")}
+            >
+              스토리라인
+            </MenuItem>
+            <MenuItem
+              active={companionView === "characters"}
+              icon={<Users aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("characters")}
+            >
+              등장인물
+            </MenuItem>
+            <MenuItem
+              active={companionView === "plot"}
+              icon={<BarChart3 aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("plot")}
+            >
+              플롯
+            </MenuItem>
+            <MenuItem
+              active={companionView === "insight"}
+              icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("insight")}
+            >
+              AI 인사이트
+            </MenuItem>
+          </CommandMenuButton>
+
+          <CommandMenuButton
+            label="도구"
+            menu="tools"
+            onToggle={setOpenMenu}
+            openMenu={openMenu}
+          >
+            <MenuItem
+              active={companionView === "assistant"}
+              icon={<Wand2 aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("assistant")}
+            >
+              집필 점검
+            </MenuItem>
+            <MenuItem
+              active={companionView === "voice"}
+              icon={<Mic aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("voice")}
+            >
+              음성 입력
+            </MenuItem>
+            <MenuItem
+              active={companionView === "reader"}
+              icon={<Volume2 aria-hidden="true" className="h-4 w-4" />}
+              onClick={() => setCompanionView("reader")}
+            >
+              읽어주기
+            </MenuItem>
+          </CommandMenuButton>
+
+          <CommandMenuButton
             label="보기"
             menu="view"
             onToggle={setOpenMenu}
@@ -742,14 +958,6 @@ export function WritingWorkspace({
         </div>
       </div>
 
-      <div className="grid gap-3 border-b border-[var(--line)] bg-[var(--panel)] p-4 xl:grid-cols-2">
-        <VoiceDraftPanel disabled={busy !== null} onInsert={handleInsertVoiceText} />
-        <TextToSpeechControls
-          getFullText={getFullEditorText}
-          getSelectedText={getSelectedEditorText}
-        />
-      </div>
-
       <div className={settings.typewriterMode ? "story-typewriter-mode" : ""}>
         <RichManuscriptEditor
           initialContent={initialContent}
@@ -772,7 +980,9 @@ export function WritingWorkspace({
 
   if (focusMode) {
     return (
-      <FocusModeShell onExit={() => setFocusMode(false)}>{editorPanel}</FocusModeShell>
+      <VoiceMicProvider>
+        <FocusModeShell onExit={() => setFocusMode(false)}>{editorPanel}</FocusModeShell>
+      </VoiceMicProvider>
     );
   }
 
@@ -789,26 +999,33 @@ export function WritingWorkspace({
       onCreateChapter={handleCreateChapter}
       onDeleteChapter={handleDeleteChapter}
       onImportWord={handleOpenWordImport}
+      onInsertVoiceText={handleInsertVoiceText}
       onMemoChange={(memo) => updateDraft({ memo })}
       onSelectChapter={selectManuscript}
       onSettingsChange={updateSettings}
       onViewChange={setCompanionView}
+      getFullEditorText={getFullEditorText}
+      getSelectedEditorText={getSelectedEditorText}
       paragraphCount={paragraphCount}
       selectedId={selectedId}
       selectedManuscript={selectedManuscript}
       settings={settings}
     />
   ) : null;
-  const companionStyle = { flexBasis: `${companionPercent}%` };
+  const companionStyle = { flex: `0 0 ${companionPercent}%` };
   const editorStyle = showCompanion
-    ? { flexBasis: `${100 - companionPercent}%` }
+    ? { flex: "1 1 0%" }
     : undefined;
   const splitHandle = showCompanion ? (
-    <SplitHandle onPointerDown={() => setDraggingSplit(true)} />
+    <SplitHandle
+      dragging={draggingSplit}
+      handleRef={splitHandleRef}
+    />
   ) : null;
 
   return (
-    <div className="min-h-[calc(100vh-32px)]">
+    <VoiceMicProvider>
+      <div className="min-h-[calc(100vh-32px)]">
       <input
         accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         className="hidden"
@@ -826,13 +1043,13 @@ export function WritingWorkspace({
 
       <div
         className={clsx(
-          "flex flex-col gap-3",
-          showCompanion && "xl:flex-row xl:items-stretch",
+          "flex flex-col gap-3 md:gap-1",
+          showCompanion && "md:flex-row md:items-stretch",
         )}
         ref={splitRef}
       >
         {layoutMode === "splitLeft" && companionPanel ? (
-          <div className="min-w-0 xl:min-w-[280px]" style={companionStyle}>
+          <div className="min-w-0 md:min-w-[280px]" style={companionStyle}>
             {companionPanel}
           </div>
         ) : null}
@@ -846,25 +1063,45 @@ export function WritingWorkspace({
         {layoutMode === "splitRight" ? splitHandle : null}
 
         {layoutMode === "splitRight" && companionPanel ? (
-          <div className="min-w-0 xl:min-w-[280px]" style={companionStyle}>
+          <div className="min-w-0 md:min-w-[280px]" style={companionStyle}>
             {companionPanel}
           </div>
         ) : null}
       </div>
-    </div>
+      </div>
+    </VoiceMicProvider>
   );
 }
 
-function SplitHandle({ onPointerDown }: { onPointerDown: () => void }) {
+function SplitHandle({
+  handleRef,
+  dragging,
+}: {
+  dragging: boolean;
+  handleRef: RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <button
+    <div
       aria-label="분할 창 크기 조절"
-      className="hidden w-3 cursor-col-resize items-center justify-center rounded-full transition hover:bg-[#dfe8e3] xl:flex"
-      onPointerDown={onPointerDown}
-      type="button"
+      aria-orientation="vertical"
+      aria-valuemax={56}
+      aria-valuemin={24}
+      className={clsx(
+        "group hidden w-2 shrink-0 touch-none select-none cursor-col-resize items-center justify-center rounded-full transition md:flex",
+        dragging ? "bg-[var(--panel-soft)]" : "hover:bg-[var(--panel-soft)]",
+      )}
+      ref={handleRef}
+      role="separator"
+      tabIndex={0}
+      title="드래그해서 자료 창과 원고 창의 폭을 조절"
     >
-      <span className="h-12 w-1 rounded-full bg-[#c8d2cd]" />
-    </button>
+      <span
+        className={clsx(
+          "h-20 w-1 rounded-full transition",
+          dragging ? "bg-[var(--accent)]" : "bg-[var(--line)] group-hover:bg-[var(--accent)]",
+        )}
+      />
+    </div>
   );
 }
 
@@ -874,12 +1111,15 @@ function CompanionPanel({
   companionView,
   dirty,
   draft,
+  getFullEditorText,
+  getSelectedEditorText,
   insight,
   lastSavedAt,
   manuscripts,
   onCreateChapter,
   onDeleteChapter,
   onImportWord,
+  onInsertVoiceText,
   onMemoChange,
   onSelectChapter,
   onSettingsChange,
@@ -894,12 +1134,15 @@ function CompanionPanel({
   companionView: CompanionView;
   dirty: boolean;
   draft: Draft;
+  getFullEditorText: () => string;
+  getSelectedEditorText: () => string;
   insight: StoryInsightData | null;
   lastSavedAt: string | null;
   manuscripts: WritingManuscript[];
   onCreateChapter: () => void;
   onDeleteChapter: () => void;
   onImportWord: () => void;
+  onInsertVoiceText: (text: string) => void;
   onMemoChange: (memo: string) => void;
   onSelectChapter: (manuscriptId: string) => void;
   onSettingsChange: (settings: EditorSettings) => void;
@@ -913,7 +1156,7 @@ function CompanionPanel({
     <aside className="h-full min-h-[720px] overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
       <div className="border-b border-[var(--line)] p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-[var(--accent)]">
-          보조 창
+          {companionSectionLabels[companionView]}
         </p>
         <h2 className="mt-1 text-lg font-bold">{companionLabels[companionView]}</h2>
         <CompanionTabs activeView={companionView} onViewChange={onViewChange} />
@@ -941,6 +1184,18 @@ function CompanionPanel({
           <StoryInsightPanel insight={insight} />
         ) : companionView === "settings" ? (
           <EditorSettingsPanel onChange={onSettingsChange} settings={settings} />
+        ) : companionView === "assistant" ? (
+          <WritingAssistantPanel text={draft.body} />
+        ) : companionView === "voice" ? (
+          <VoiceDraftPanel
+            disabled={busy !== null}
+            onInsert={onInsertVoiceText}
+          />
+        ) : companionView === "reader" ? (
+          <TextToSpeechControls
+            getFullText={getFullEditorText}
+            getSelectedText={getSelectedEditorText}
+          />
         ) : (
           <ChapterMemoPanel
             busy={busy}
@@ -967,33 +1222,63 @@ function CompanionTabs({
   activeView: CompanionView;
   onViewChange: (view: CompanionView) => void;
 }) {
-  const tabs: Array<{ label: string; value: CompanionView }> = [
-    { label: "타임라인", value: "timeline" },
-    { label: "스토리", value: "storyline" },
-    { label: "인물", value: "characters" },
-    { label: "플롯", value: "plot" },
-    { label: "챕터", value: "chapters" },
-    { label: "AI", value: "insight" },
-    { label: "설정", value: "settings" },
-    { label: "메모", value: "memo" },
+  const groups: Array<{
+    label: string;
+    views: Array<{ label: string; value: CompanionView }>;
+  }> = [
+    {
+      label: "작가 자료",
+      views: [
+        { label: "챕터", value: "chapters" },
+        { label: "메모", value: "memo" },
+        { label: "설정", value: "settings" },
+      ],
+    },
+    {
+      label: "분석 자료",
+      views: [
+        { label: "타임라인", value: "timeline" },
+        { label: "스토리", value: "storyline" },
+        { label: "인물", value: "characters" },
+        { label: "플롯", value: "plot" },
+        { label: "AI", value: "insight" },
+      ],
+    },
+    {
+      label: "집필 도구",
+      views: [
+        { label: "점검", value: "assistant" },
+        { label: "음성", value: "voice" },
+        { label: "낭독", value: "reader" },
+      ],
+    },
   ];
 
   return (
-    <div className="mt-3 flex gap-1 overflow-x-auto rounded-md bg-[#eef2ef] p-1 text-sm font-semibold">
-      {tabs.map((tab) => (
-        <button
-          className={clsx(
-            "shrink-0 rounded px-3 py-2",
-            activeView === tab.value
-              ? "bg-white text-[#17484b] shadow-sm"
-              : "text-[#58615c]",
-          )}
-          key={tab.value}
-          onClick={() => onViewChange(tab.value)}
-          type="button"
-        >
-          {tab.label}
-        </button>
+    <div className="mt-4 space-y-3">
+      {groups.map((group) => (
+        <div key={group.label}>
+          <p className="mb-1.5 text-[11px] font-bold text-[var(--muted)]">
+            {group.label}
+          </p>
+          <div className="flex flex-wrap gap-1 rounded-md bg-[#eef2ef] p-1 text-sm font-semibold">
+            {group.views.map((tab) => (
+              <button
+                className={clsx(
+                  "shrink-0 rounded px-3 py-2",
+                  activeView === tab.value
+                    ? "bg-white text-[#17484b] shadow-sm"
+                    : "text-[#58615c]",
+                )}
+                key={tab.value}
+                onClick={() => onViewChange(tab.value)}
+                type="button"
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -1286,6 +1571,14 @@ function MenuDivider() {
   return <div className="my-2 h-px bg-[var(--line)]" />;
 }
 
+function MenuGroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">
+      {children}
+    </p>
+  );
+}
+
 function ChapterMemoPanel({
   busy,
   characterCount,
@@ -1474,8 +1767,28 @@ function isCompanionView(value: string | null): value is CompanionView {
     value === "chapters" ||
     value === "insight" ||
     value === "settings" ||
-    value === "memo"
+    value === "memo" ||
+    value === "assistant" ||
+    value === "voice" ||
+    value === "reader"
   );
+}
+
+function readClientX(event: Event) {
+  if ("touches" in event) {
+    const touchEvent = event as TouchEvent;
+    return (
+      touchEvent.touches[0]?.clientX ??
+      touchEvent.changedTouches[0]?.clientX ??
+      null
+    );
+  }
+
+  if ("clientX" in event && typeof event.clientX === "number") {
+    return event.clientX;
+  }
+
+  return null;
 }
 
 function clamp(value: number, min: number, max: number) {

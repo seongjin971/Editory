@@ -40,9 +40,11 @@ type CharacterConceptItem = {
 
 export function CharacterStudio({
   concepts,
+  embedded = false,
   projectId,
 }: {
   concepts: CharacterConceptItem[];
+  embedded?: boolean;
   projectId: string;
 }) {
   const router = useRouter();
@@ -83,6 +85,7 @@ export function CharacterStudio({
 
   return (
     <div className="space-y-5">
+      {!embedded ? (
       <header className="rounded-lg border border-[var(--line)] bg-white p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -106,6 +109,7 @@ export function CharacterStudio({
           </div>
         </div>
       </header>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="rounded-lg border border-[var(--line)] bg-white p-4 xl:sticky xl:top-4 xl:self-start">
