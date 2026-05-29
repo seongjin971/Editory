@@ -2,7 +2,6 @@ import { BarChart3, FileText, PencilLine, WandSparkles } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { analyzeProject } from "@/app/actions";
-import { DemoAnalysisNotice } from "@/components/demo-analysis-notice";
 import { ProjectWorkspaceFrame } from "@/components/project-workspace-frame";
 import { SubmitButton } from "@/components/submit-button";
 import { getProjectOverview } from "@/lib/data";
@@ -71,8 +70,6 @@ export default async function ProjectOverviewPage({
             </div>
           </div>
         </section>
-
-        <DemoAnalysisNotice compact />
 
         <section className="grid gap-4 md:grid-cols-4">
           <MetricCard label="원고" value={`${project.manuscripts.length}`} />

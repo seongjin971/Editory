@@ -1,7 +1,6 @@
 import { WandSparkles } from "lucide-react";
 import { analyzeProject } from "@/app/actions";
 import { Badge } from "@/components/badge";
-import { DemoAnalysisNotice } from "@/components/demo-analysis-notice";
 import { EmptyState } from "@/components/empty-state";
 import { ProjectWorkspaceFrame } from "@/components/project-workspace-frame";
 import { SubmitButton } from "@/components/submit-button";
@@ -60,8 +59,6 @@ export default async function AnalysisPage({
             </SubmitButton>
           </form>
         </div>
-
-        <DemoAnalysisNotice />
 
         {!analysis ? (
           <EmptyState title="분석 리포트가 없습니다">

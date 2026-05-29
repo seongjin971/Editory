@@ -1,5 +1,4 @@
 import { Badge } from "@/components/badge";
-import { DemoAnalysisNotice } from "@/components/demo-analysis-notice";
 import { diagnosisClass, issueTypeLabels, roleLabels, severityClass } from "@/lib/labels";
 import type { ReactNode } from "react";
 
@@ -56,8 +55,6 @@ export function StoryInsightPanel({ insight }: { insight: StoryInsightData | nul
 
   return (
     <div className="space-y-4">
-      <DemoAnalysisNotice compact />
-
       <InsightSection title="핵심 사건">
         {insight.beats.slice(0, 4).map((beat) => (
           <article className="rounded-md bg-[#f7f9f7] p-3" key={beat.id}>
