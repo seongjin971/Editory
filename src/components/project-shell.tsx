@@ -13,7 +13,6 @@ const LABEL_VISIBLE_WIDTH = 176;
 
 export function ProjectShell({
   children,
-  genre,
   projectId,
   title,
 }: {
@@ -199,9 +198,6 @@ export function ProjectShell({
               <h1 className="mt-2 line-clamp-2 text-xl font-bold text-[#1d2320]">
                 {title}
               </h1>
-              <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
-                {genre || "장르 미지정"}
-              </p>
             </div>
           ) : null}
 
