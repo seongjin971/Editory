@@ -58,6 +58,7 @@ STORY_ANALYZER_LLM_SCOPE="chapter"
 OPENAI_API_KEY="sk-..."
 OPENAI_MODEL="gpt-5-mini"
 OPENAI_ANALYSIS_MAX_CHARS="18000"
+OPENAI_SMOKE_MAX_CHARS="6000"
 ```
 
 - `STORY_ANALYZER_PROVIDER="mock"`이면 항상 로컬 Mock 분석기를 사용합니다.
@@ -65,6 +66,14 @@ OPENAI_ANALYSIS_MAX_CHARS="18000"
 - 기본 `STORY_ANALYZER_LLM_SCOPE="chapter"`는 현재 챕터 분석만 OpenAI로 실행합니다. 전체 프로젝트 분석까지 OpenAI로 보내려면 `all`로 바꿉니다.
 - OpenAI 호출 실패, 키 누락, 응답 검증 실패 시 기존 Mock analyzer로 자동 fallback됩니다.
 - provider 응답은 `StoryAnalysisSchema.parse(...)`로 검증한 뒤 `src/lib/data.ts`의 `saveAnalysisResult()`가 그대로 저장합니다.
+
+API 키가 실제로 동작하는지 확인하려면 앱 버튼을 누르기 전에 스모크 테스트를 먼저 실행합니다. 이 테스트는 fallback 없이 OpenAI만 호출하고, 결과 개수만 출력합니다.
+
+```bash
+npm run analysis:test-openai
+npm run analysis:test-openai -- <projectId>
+npm run analysis:test-openai -- <projectId> <manuscriptId>
+```
 
 ## Cafe24 테스트 배포
 

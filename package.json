@@ -15,6 +15,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "auth:reset-tester": "tsx scripts/reset-tester-password.ts",
     "auth:ensure-tester": "tsx scripts/ensure-tester.ts",
+    "analysis:test-openai": "tsx scripts/test-openai-analysis.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
