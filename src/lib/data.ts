@@ -132,9 +132,11 @@ export async function getLatestAnalysis(projectId: string) {
   }
 
   const raw = parseRawAnalysis(run.rawJson);
+  const metadata = raw?.metadata ?? inferAnalysisMetadata(run);
 
   return {
     ...run,
+    metadata,
     recommendations: raw?.recommendations ?? [],
     storyBeats: run.storyBeats.map((beat) => ({
       ...beat,
@@ -258,4 +260,31 @@ function parseRawAnalysis(rawJson: string) {
   } catch {
     return null;
   }
+}
+
+function inferAnalysisMetadata(run: {
+  scope: string;
+  summary: string;
+}) {
+  if (run.summary.includes("Mock")) {
+    return {
+      provider: "mock" as const,
+      model: "local-mock",
+    };
+  }
+
+  const provider = process.env.STORY_ANALYZER_PROVIDER?.trim().toLowerCase();
+  const llmScope =
+    process.env.STORY_ANALYZER_LLM_SCOPE?.trim().toLowerCase() ?? "chapter";
+
+  if (provider === "openai" && (llmScope === "all" || llmScope === run.scope)) {
+    return {
+      provider: "openai" as const,
+      model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+    };
+  }
+
+  return {
+    provider: "unknown" as const,
+  };
 }

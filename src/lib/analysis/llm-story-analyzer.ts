@@ -318,7 +318,15 @@ export class LlmStoryAnalyzer implements StoryAnalyzer {
 
     const outputText = extractResponseText(payload);
     const parsed = parseJsonText(outputText);
-    return StoryAnalysisSchema.parse(parsed);
+    const analysis = StoryAnalysisSchema.parse(parsed);
+    return {
+      ...analysis,
+      metadata: {
+        provider: "openai" as const,
+        model: this.model,
+        generatedAt: new Date().toISOString(),
+      },
+    };
   }
 
   private async fallbackOrThrow(

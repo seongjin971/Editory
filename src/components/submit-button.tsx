@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { clsx } from "clsx";
 
@@ -8,6 +8,7 @@ type SubmitButtonProps = {
   children: ReactNode;
   pendingText?: string;
   className?: string;
+  confirmMessage?: string;
   variant?: "primary" | "secondary" | "danger";
 };
 
@@ -24,9 +25,17 @@ export function SubmitButton({
   children,
   pendingText = "처리 중",
   className,
+  confirmMessage,
   variant = "primary",
 }: SubmitButtonProps) {
   const { pending } = useFormStatus();
+
+  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+    if (confirmMessage && !window.confirm(confirmMessage)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
 
   return (
     <button
@@ -36,6 +45,7 @@ export function SubmitButton({
         className,
       )}
       disabled={pending}
+      onClick={handleClick}
       type="submit"
     >
       {pending ? pendingText : children}

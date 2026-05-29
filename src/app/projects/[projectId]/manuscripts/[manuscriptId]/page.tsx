@@ -28,7 +28,10 @@ export default async function ManuscriptEditorPage({
           <form action={analyzeChapter}>
             <input name="projectId" type="hidden" value={projectId} />
             <input name="manuscriptId" type="hidden" value={manuscript.id} />
-            <SubmitButton pendingText="분석 중">
+            <SubmitButton
+              confirmMessage="현재 원고를 분석할까요?\n\nOpenAI 모드에서는 API 비용이 발생할 수 있습니다. 한도 5달러 환경에서는 필요한 경우에만 실행하세요."
+              pendingText="분석 중"
+            >
               <WandSparkles aria-hidden="true" className="h-4 w-4" />
               스토리 분석하기
             </SubmitButton>

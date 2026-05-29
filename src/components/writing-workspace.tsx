@@ -662,6 +662,10 @@ export function WritingWorkspace({
   }
 
   async function handleAnalyzeChapter() {
+    if (!confirmAnalysisCost("현재 챕터 분석")) {
+      return;
+    }
+
     try {
       setBusy("chapter");
       const manuscriptId = await persistDraft();
@@ -674,6 +678,10 @@ export function WritingWorkspace({
   }
 
   async function handleAnalyzeProject() {
+    if (!confirmAnalysisCost("전체 프로젝트 분석")) {
+      return;
+    }
+
     try {
       setBusy("project");
       await persistDraft();
@@ -1771,6 +1779,12 @@ function isCompanionView(value: string | null): value is CompanionView {
     value === "assistant" ||
     value === "voice" ||
     value === "reader"
+  );
+}
+
+function confirmAnalysisCost(label: string) {
+  return window.confirm(
+    `${label}을 실행할까요?\n\n현재 OpenAI 분석 모드에서는 API 비용이 발생할 수 있습니다. 한도 5달러 환경에서는 실수로 여러 번 누르지 않도록 확인 후 진행하세요.`,
   );
 }
 

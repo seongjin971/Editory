@@ -36,7 +36,13 @@ export default async function AnalysisPage({
       }
       companionTitle="리포트 목차"
       eyebrow="분석 리포트"
-      meta={analysis ? `${formatDate(analysis.createdAt)} 생성` : "분석 결과 없음"}
+      meta={
+        analysis
+          ? `${formatDate(analysis.createdAt)} 생성 · ${providerLabel(
+              analysis.metadata?.provider,
+            )}`
+          : "분석 결과 없음"
+      }
       pageKey="analysis"
       projectId={projectId}
       title="서사 구조 분석 리포트"
@@ -45,7 +51,10 @@ export default async function AnalysisPage({
         <div className="flex justify-end">
           <form action={analyzeProject}>
             <input name="projectId" type="hidden" value={projectId} />
-            <SubmitButton pendingText="분석 중">
+            <SubmitButton
+              confirmMessage="스토리 분석을 실행할까요?\n\nOpenAI 모드에서는 API 비용이 발생할 수 있습니다. 한도 5달러 환경에서는 필요한 경우에만 실행하세요."
+              pendingText="분석 중"
+            >
               <WandSparkles aria-hidden="true" className="h-4 w-4" />
               스토리 분석하기
             </SubmitButton>
@@ -61,7 +70,17 @@ export default async function AnalysisPage({
         ) : (
           <>
             <section className="rounded-lg border border-[var(--line)] bg-white p-6">
-              <h2 className="text-lg font-bold">전체 요약</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-bold">전체 요약</h2>
+                <div className="flex flex-wrap gap-2">
+                  <Badge className={providerClass(analysis.metadata?.provider)}>
+                    {providerLabel(analysis.metadata?.provider)}
+                  </Badge>
+                  {analysis.metadata?.model ? (
+                    <Badge>{analysis.metadata.model}</Badge>
+                  ) : null}
+                </div>
+              </div>
               <p className="mt-3 leading-7 text-[#34413b]">{analysis.summary}</p>
             </section>
 
@@ -251,6 +270,30 @@ export default async function AnalysisPage({
       </div>
     </ProjectWorkspaceFrame>
   );
+}
+
+function providerLabel(provider: string | undefined) {
+  if (provider === "openai") {
+    return "OpenAI 분석";
+  }
+
+  if (provider === "mock") {
+    return "Mock 분석";
+  }
+
+  return "출처 확인 필요";
+}
+
+function providerClass(provider: string | undefined) {
+  if (provider === "openai") {
+    return "bg-[#e4f1ec] text-[#256044]";
+  }
+
+  if (provider === "mock") {
+    return "bg-[#fff6df] text-[#7a4b12]";
+  }
+
+  return "bg-[#e9eef2] text-[#40515f]";
 }
 
 function ReportCompanion({

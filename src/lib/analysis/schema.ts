@@ -25,6 +25,7 @@ export const EventCategorySchema = z.enum([
 
 export const DiagnosisSchema = z.enum(["부족", "적정", "과다"]);
 export const IssueSeveritySchema = z.enum(["low", "medium", "high"]);
+export const AnalysisProviderSchema = z.enum(["mock", "openai", "unknown"]);
 
 export const IssueTypeSchema = z.enum([
   "timeline_contradiction",
@@ -37,6 +38,13 @@ export const IssueTypeSchema = z.enum([
 ]);
 
 export const StoryAnalysisSchema = z.object({
+  metadata: z
+    .object({
+      provider: AnalysisProviderSchema,
+      model: z.string().optional(),
+      generatedAt: z.string().optional(),
+    })
+    .optional(),
   summary: z.string(),
   storyline: z.array(
     z.object({

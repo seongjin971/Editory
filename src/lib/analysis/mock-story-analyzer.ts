@@ -133,6 +133,11 @@ export class MockStoryAnalyzer implements StoryAnalyzer {
     const recommendations = buildRecommendations(eventWeights, consistencyIssues);
 
     return StoryAnalysisSchema.parse({
+      metadata: {
+        provider: "mock",
+        model: "local-mock",
+        generatedAt: new Date().toISOString(),
+      },
       summary: buildSummary(input.project, manuscripts, storyline, characters),
       storyline,
       timeline,
